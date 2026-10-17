@@ -3,7 +3,7 @@ import { asc, between, eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { db, employees, punches, shiftTemplates, shifts } from '#lib/server/db/index.js';
 import { attendance, summarize, type DayRecord } from '#lib/server/attendance.js';
-import { requireOwner } from '#lib/server/guard.js';
+import { canSchedule, requireOwner, requireScheduler } from '#lib/server/guard.js';
 import { notify } from '#lib/server/notify.js';
 import { holidaysBetween } from '#lib/server/holidays.js';
 import { pushTo } from '#lib/server/push.js';
@@ -62,11 +62,20 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		shifts: shiftRows,
 		records,
 		summary: focus && records[focus] ? summarize(records[focus]) : null,
-		holidays
+		holidays,
+		/** 老闆或有排班權限的員工，月曆上會出現排班、修改、刪除的按鈕 */
+		canEdit: canSchedule(me)
 	};
 };
 
 const TIME_RE = /^\d{2}:\d{2}$/;
+
+/** 有排班權限的員工只能動員工的班，不能改老闆 / 老闆娘的班 */
+async function assertCanTouch(actor: App.User, employeeId: number) {
+	if (actor.role === 'owner') return null;
+	const [target] = await db.select({ role: employees.role }).from(employees).where(eq(employees.id, employeeId));
+	return target?.role === 'owner' ? fail(403, { message: '不能修改老闆的班表' }) : null;
+}
 
 async function nameOf(id: number) {
 	const [row] = await db.select({ name: employees.name }).from(employees).where(eq(employees.id, id));
@@ -75,7 +84,7 @@ async function nameOf(id: number) {
 
 export const actions: Actions = {
 	save: async ({ request, locals }) => {
-		const owner = requireOwner(locals);
+		const owner = requireScheduler(locals);
 		const form = await request.formData();
 		const id = Number(form.get('id')) || null;
 		const employeeId = Number(form.get('employeeId'));
@@ -88,6 +97,13 @@ export const actions: Actions = {
 		if (!employeeId || !isDay(day) || !TIME_RE.test(startTime) || !TIME_RE.test(endTime)) {
 			return fail(400, { message: '請選員工並填好日期與時間' });
 		}
+		const denied = await assertCanTouch(owner, employeeId);
+		if (denied) return denied;
+		if (id) {
+			const [old] = await db.select({ employeeId: shifts.employeeId }).from(shifts).where(eq(shifts.id, id));
+			const deniedOld = old ? await assertCanTouch(owner, old.employeeId) : null;
+			if (deniedOld) return deniedOld;
+		}
 		const values = { employeeId, day, startTime: `${startTime}:00`, endTime: `${endTime}:00`, note, leave };
 		if (id) await db.update(shifts).set(values).where(eq(shifts.id, id));
 		else await db.insert(shifts).values(values);
@@ -96,7 +112,9 @@ export const actions: Actions = {
 		await notify(
 			leave ? 'leave' : 'shift',
 			employeeId,
-			leave ? `${name} ${fmtDay(day)} 請假` : `${id ? '修改' : '新增'} ${name} ${fmtDay(day)} ${startTime}–${endTime} 的班`,
+			leave
+				? `${owner.name} 登記 ${name} ${fmtDay(day)} 請假`
+				: `${owner.name} ${id ? '修改' : '新增'}了 ${name} ${fmtDay(day)} ${startTime}–${endTime} 的班`,
 			{
 				title: leave ? '🏖️ 請假' : '📅 班表異動',
 				actorId: owner.id,
@@ -109,12 +127,14 @@ export const actions: Actions = {
 	},
 
 	remove: async ({ request, locals }) => {
-		const owner = requireOwner(locals);
+		const owner = requireScheduler(locals);
 		const id = Number((await request.formData()).get('id'));
 		const [row] = await db.select().from(shifts).where(eq(shifts.id, id));
 		if (!row) return { removed: true };
+		const denied = await assertCanTouch(owner, row.employeeId);
+		if (denied) return denied;
 		await db.delete(shifts).where(eq(shifts.id, id));
-		await notify('shift', row.employeeId, `刪除 ${await nameOf(row.employeeId)} ${fmtDay(row.day)} ${hhmm(row.startTime)}–${hhmm(row.endTime)} 的班`, {
+		await notify('shift', row.employeeId, `${owner.name} 刪除了 ${await nameOf(row.employeeId)} ${fmtDay(row.day)} ${hhmm(row.startTime)}–${hhmm(row.endTime)} 的班`, {
 			title: '📅 班表異動',
 			actorId: owner.id,
 			toEmployee: { title: '📅 你的班被取消了', body: `${fmtDay(row.day)} ${hhmm(row.startTime)}–${hhmm(row.endTime)} 不用上班`, url: '/schedule', tag: `shift-${row.day}` }
@@ -124,7 +144,7 @@ export const actions: Actions = {
 
 	/** 依每個人的固定班，把這個月還沒排的日子補上 */
 	applyTemplates: async ({ request, locals }) => {
-		const owner = requireOwner(locals);
+		const owner = requireScheduler(locals);
 		const month = str(await request.formData(), 'month');
 		if (!isMonth(month)) return fail(400, { message: '月份不正確' });
 		const days = monthDays(month);
@@ -146,7 +166,7 @@ export const actions: Actions = {
 		if (toInsert.length) {
 			await db.insert(shifts).values(toInsert);
 			const [, m] = month.split('-').map(Number);
-			await notify('shift', null, `依固定班產生 ${month} 班表，共 ${toInsert.length} 個班`, { title: '📅 班表排好了', actorId: owner.id });
+			await notify('shift', null, `${owner.name} 依固定班產生 ${month} 班表，共 ${toInsert.length} 個班`, { title: '📅 班表排好了', actorId: owner.id });
 			// 每位被排到的員工各收一則
 			const counts = new Map<number, number>();
 			for (const s of toInsert) counts.set(s.employeeId, (counts.get(s.employeeId) ?? 0) + 1);

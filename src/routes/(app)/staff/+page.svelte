@@ -125,6 +125,7 @@
 					<span class="flex items-center gap-2">
 						<span class="truncate text-lg font-bold">{p.name}</span>
 						{#if p.role === 'owner'}<span class="chip bg-chili-soft text-chili-deep">老闆</span>{/if}
+						{#if p.role === 'staff' && p.canSchedule}<span class="chip bg-[#fdf0dc] text-[#a35a0c]">可排班</span>{/if}
 						{#if !p.active}<span class="chip bg-paper-2 text-muted">已停用</span>{/if}
 						{#if p.hourlyWage}<span class="tabular ml-auto text-sm text-muted">時薪 ${p.hourlyWage}</span>{/if}
 					</span>
@@ -204,6 +205,15 @@
 			{@render wageField(editing.hourlyWage)}
 			{@render colorPicker('color', editColor, (c) => (editColor = c))}
 			{@render rolePicker(editing.role)}
+			{#if editing.role === 'staff'}
+				<label class="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3.5 has-checked:border-[#e0a54a] has-checked:bg-[#fdf3e3]">
+					<span class="min-w-0">
+						<span class="flex items-center gap-1.5 font-bold"><CalendarClock class="size-4 text-[#a35a0c]" /> 排班權限</span>
+						<span class="block text-xs leading-relaxed text-muted">可以在月曆新增、修改、刪除班表和登記請假。看不到別人的打卡和薪水，也不能發薪、管理員工。他改的班老闆都會收到通知。</span>
+					</span>
+					<input type="checkbox" name="canSchedule" checked={editing.canSchedule} class="size-5 shrink-0 accent-[#c27a1a]" />
+				</label>
+			{/if}
 			<button class="btn btn-primary w-full" disabled={busy}>儲存</button>
 		</form>
 

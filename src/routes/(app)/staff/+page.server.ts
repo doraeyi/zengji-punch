@@ -21,7 +21,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 				role: employees.role,
 				color: employees.color,
 				active: employees.active,
-				hourlyWage: employees.hourlyWage
+				hourlyWage: employees.hourlyWage,
+				canSchedule: employees.canSchedule
 			})
 			.from(employees)
 			.orderBy(desc(employees.active), asc(employees.id)),
@@ -114,7 +115,18 @@ export const actions: Actions = {
 		const role = str(form, 'role') === 'owner' ? 'owner' : 'staff';
 		const hourlyWage = Math.max(0, Math.round(Number(str(form, 'hourlyWage')) || 0));
 		if (emp.id === me.id && role !== 'owner') return fail(400, { scope: 'edit', message: '不能把自己改成員工' });
-		await db.update(employees).set({ name, color, role, hourlyWage }).where(eq(employees.id, emp.id));
+		// 老闆本來就能排班；排班權限只對員工有意義
+		const canSchedule = role === 'staff' && form.get('canSchedule') === 'on';
+		await db.update(employees).set({ name, color, role, hourlyWage, canSchedule }).where(eq(employees.id, emp.id));
+		if (role === 'staff' && canSchedule !== emp.canSchedule) {
+			await notify('staff', emp.id, canSchedule ? `${me.name} 給了 ${name} 排班權限` : `${me.name} 取消了 ${name} 的排班權限`, {
+				title: '📅 排班權限',
+				actorId: me.id,
+				toEmployee: canSchedule
+					? { title: '📅 你可以排班了', body: '到「月曆」→「全店班表」，點日期就能新增、修改、刪除班表', url: '/schedule?who=all', tag: 'can-schedule' }
+					: { title: '📅 排班權限已取消', body: '之後只能查看班表', url: '/schedule', tag: 'can-schedule' }
+			});
+		}
 		if (hourlyWage !== emp.hourlyWage) await notify('staff', emp.id, `${name} 時薪改為 $${hourlyWage}`);
 		if (role !== emp.role) {
 			await notify('staff', emp.id, role === 'owner' ? `${me.name} 給了 ${name} 老闆權限` : `${me.name} 取消了 ${name} 的老闆權限`, {

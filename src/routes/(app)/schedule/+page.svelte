@@ -97,7 +97,7 @@
 
 <PageHeader kicker="CALENDAR" title="月曆班表">
 	{#snippet action()}
-		{#if isOwner}
+		{#if data.canEdit}
 			<form method="POST" action={act("applyTemplates")} use:enhance={submit}>
 				<input type="hidden" name="month" value={data.month} />
 				<button class="btn btn-ghost px-3 py-2 text-sm" disabled={busy}><Wand class="size-4 text-chili" /> 套用固定班</button>
@@ -278,7 +278,7 @@
 						{:else}
 							<span class="text-sm text-muted">沒有排班</span>
 						{/if}
-						{#if isOwner && shift}
+						{#if data.canEdit && shift && (isOwner || p.role === 'staff')}
 							<button class="ml-auto grid size-8 shrink-0 place-items-center rounded-full bg-card text-ink-2 hover:text-chili" aria-label="編輯 {p.name} 的班" onclick={() => editShift(shift)}>
 								<PencilLine class="size-4" />
 							</button>
@@ -331,7 +331,7 @@
 				<li class="rounded-3xl bg-paper-2 px-4 py-8 text-center text-sm text-muted">這天沒有排班</li>
 			{/each}
 		</ul>
-		{#if isOwner}
+		{#if data.canEdit}
 			<button class="btn btn-primary mt-4 w-full" onclick={() => newShift(openDay!)}><Plus class="size-4" /> 在這天排班</button>
 		{/if}
 	{/if}
@@ -380,7 +380,7 @@
 			<div>
 				<span class="field-label">員工</span>
 				<div class="flex flex-wrap gap-2">
-					{#each data.staff as s (s.id)}
+					{#each isOwner ? data.staff : data.staff.filter((x) => x.role === 'staff') as s (s.id)}
 						<label
 							class="flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium has-checked:text-white"
 							style:background={draft.employeeId === s.id ? s.color : undefined}

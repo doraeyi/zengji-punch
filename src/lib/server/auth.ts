@@ -58,7 +58,8 @@ export async function resolveDevice(token: string) {
 			id: employees.id,
 			name: employees.name,
 			role: employees.role,
-			color: employees.color
+			color: employees.color,
+			canSchedule: employees.canSchedule
 		})
 		.from(devices)
 		.innerJoin(employees, eq(devices.employeeId, employees.id))

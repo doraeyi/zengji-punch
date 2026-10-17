@@ -7,6 +7,8 @@ declare global {
 			name: string;
 			role: 'owner' | 'staff';
 			color: string;
+			/** 員工有沒有排班權限（老闆一律可以排班） */
+			canSchedule: boolean;
 		}
 		interface Locals {
 			/** 這支裝置綁定的員工；沒綁定就是 null */

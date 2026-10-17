@@ -27,6 +27,8 @@ export const employees = mysqlTable(
 		/** 班表上的代表色，方便一眼看出是誰的班 */
 		color: varchar('color', { length: 16 }).notNull().default('#c2410c'),
 		active: boolean('active').notNull().default(true),
+		/** 排班權限：員工也能在月曆新增、修改、刪除班表（看不到別人的打卡與薪水） */
+		canSchedule: boolean('can_schedule').notNull().default(false),
 		/** 時薪（元）。老闆 / 老闆娘可設 0 表示不計薪 */
 		hourlyWage: int('hourly_wage').notNull().default(0),
 		/** 老闆看過的最後一則通知 id，用來算未讀數 */
