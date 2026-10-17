@@ -4,6 +4,7 @@
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import AuthShell from '#lib/components/AuthShell.svelte';
+	import DeviceModelField from '#lib/components/DeviceModelField.svelte';
 	import IosInstallTip from '#lib/components/IosInstallTip.svelte';
 	import type { PageProps } from './$types';
 
@@ -28,6 +29,7 @@
 			};
 		}}
 	>
+		<DeviceModelField />
 		<input type="hidden" name="then" value={data.then ?? ''} />
 		<div>
 			<label class="field-label" for="username">帳號</label>

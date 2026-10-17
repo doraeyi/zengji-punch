@@ -13,7 +13,7 @@ declare global {
 			user: User | null;
 			deviceId: number | null;
 			/** 這支手機原本的帳號已被老闆轉移到新手機（記住是誰，避免舊手機再登回去） */
-			transferredFrom: number | null;
+			transferredFrom: { employeeId: number; deviceId: number } | null;
 		}
 		// interface Error {}
 		// interface PageData {}

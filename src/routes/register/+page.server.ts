@@ -62,7 +62,7 @@ export const actions: Actions = {
 				createdAt: new Date()
 			})
 			.$returningId();
-		await bindDevice(cookies, row.id, request.headers.get('user-agent'));
+		await bindDevice(cookies, row.id, request.headers.get('user-agent'), String(form.get('model') ?? ''));
 
 		if (role === 'staff') {
 			await notify('staff', row.id, `新員工 ${name} 註冊了，記得到「管理」設定時薪`, { title: '👋 新員工加入' });

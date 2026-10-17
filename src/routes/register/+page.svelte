@@ -4,6 +4,7 @@
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import AuthShell from '#lib/components/AuthShell.svelte';
+	import DeviceModelField from '#lib/components/DeviceModelField.svelte';
 	import IosInstallTip from '#lib/components/IosInstallTip.svelte';
 	import type { PageProps } from './$types';
 
@@ -42,6 +43,7 @@
 			};
 		}}
 	>
+		<DeviceModelField />
 		<div>
 			<label class="field-label" for="name">你的名字</label>
 			<input id="name" name="name" class="field" placeholder="例如：周冠穎" bind:value={name} required />

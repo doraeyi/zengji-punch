@@ -1,7 +1,7 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Cookies } from '@sveltejs/kit';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { db, devices, employees, pushSubscriptions } from './db';
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
@@ -39,14 +39,14 @@ export function clearDeviceCookie(cookies: Cookies) {
 	cookies.delete(DEVICE_COOKIE, { path: '/' });
 }
 
-/** 這支手機的帳號是不是剛被轉移走（老闆按了「轉移帳號」） */
-export async function transferredFrom(token: string): Promise<number | null> {
+/** 這支手機的帳號曾經被轉移走（老闆按了「轉移帳號」）：回傳是哪個帳號、哪一筆裝置紀錄 */
+export async function transferredFrom(token: string): Promise<{ employeeId: number; deviceId: number } | null> {
 	const [row] = await db
-		.select({ employeeId: devices.employeeId, reason: devices.revokeReason })
+		.select({ id: devices.id, employeeId: devices.employeeId, reason: devices.revokeReason })
 		.from(devices)
 		.where(eq(devices.tokenHash, sha256(token)))
 		.limit(1);
-	return row?.reason === 'transfer' ? row.employeeId : null;
+	return row?.reason === 'transfer' ? { employeeId: row.employeeId, deviceId: row.id } : null;
 }
 
 /** 用 cookie 裡的裝置 token 找出目前是誰。裝置被解除綁定或帳號停用都會回傳 null。 */
@@ -77,14 +77,19 @@ export async function resolveDevice(token: string) {
 }
 
 /** 從 User-Agent 猜一個好認的裝置名稱，給後台看「綁在哪支手機」用 */
-export function deviceLabel(ua: string | null): string {
+export function deviceLabel(ua: string | null, model?: string | null): string {
 	if (!ua) return '未知裝置';
+	// Android Chrome 會透過 Client Hints 給真正的型號（例如 Pixel 8、SM-S9210）；
+	// 新版 Android 的 User-Agent 裡型號一律被藏成「K」，iPhone 則完全不給型號
+	const cleanModel = model?.replace(/[^\w\s()+.-]/g, '').trim().slice(0, 40);
+	const uaModel = ua.match(/Android[^;)]*;\s*([^;)]+?)(?:\sBuild|\))/)?.[1];
+	const android = cleanModel || (uaModel && uaModel !== 'K' ? uaModel : 'Android 手機');
 	const os = /iPhone/.test(ua)
 		? 'iPhone'
 		: /iPad/.test(ua)
 			? 'iPad'
 			: /Android/.test(ua)
-				? (ua.match(/Android[^;)]*;\s*([^;)]+?)(?:\sBuild|\))/)?.[1] ?? 'Android')
+				? android
 				: /Windows/.test(ua)
 					? 'Windows 電腦'
 					: /Macintosh/.test(ua)
@@ -103,7 +108,7 @@ export function deviceLabel(ua: string | null): string {
 }
 
 /** 建立一筆新的裝置綁定並寫入 cookie */
-export async function bindDevice(cookies: Cookies, employeeId: number, ua: string | null) {
+export async function bindDevice(cookies: Cookies, employeeId: number, ua: string | null, model?: string | null) {
 	const token = randomBytes(32).toString('base64url');
 	const now = new Date();
 	const [row] = await db
@@ -111,7 +116,7 @@ export async function bindDevice(cookies: Cookies, employeeId: number, ua: strin
 		.values({
 			employeeId,
 			tokenHash: sha256(token),
-			label: deviceLabel(ua),
+			label: deviceLabel(ua, model),
 			createdAt: now,
 			lastSeenAt: now
 		})
@@ -172,13 +177,17 @@ export function clearLoginFailures(key: string) {
 	failures.delete(key);
 }
 
-/** 這位員工是不是在「等新手機登入」：最近一次解除綁定的原因是轉移帳號 */
-export async function awaitingTransfer(employeeId: number) {
+/**
+ * 最近一次被解除綁定的手機。如果原因是轉移帳號，代表正在「等新手機登入」，
+ * 而且只有「這一次」被轉走的那支手機不能登回來；更早之前被轉走的手機，
+ * 老闆後來又轉移了一次的話，是可以當新手機登入的。
+ */
+export async function lastRevokedDevice(employeeId: number) {
 	const [last] = await db
-		.select({ reason: devices.revokeReason })
+		.select({ id: devices.id, reason: devices.revokeReason })
 		.from(devices)
-		.where(eq(devices.employeeId, employeeId))
-		.orderBy(desc(devices.revokedAt))
+		.where(and(eq(devices.employeeId, employeeId), isNotNull(devices.revokedAt)))
+		.orderBy(desc(devices.revokedAt), desc(devices.id))
 		.limit(1);
-	return last?.reason === 'transfer';
+	return last ?? null;
 }

@@ -4,7 +4,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { db, employees } from '#lib/server/db/index.js';
 import {
 	activeDeviceCount,
-	awaitingTransfer,
+	lastRevokedDevice,
 	deviceLabel,
 	bindDevice,
 	clearLoginFailures,
@@ -54,8 +54,14 @@ export const actions: Actions = {
 
 		const bound = await activeDeviceCount(emp.id);
 
-		// 老闆按了「轉移帳號」之後，舊手機不能再登回這個帳號，要用新手機登入
-		if (locals.transferredFrom === emp.id && bound === 0) {
+		// 老闆按了「轉移帳號」之後，「這次」被轉走的舊手機不能再登回這個帳號，要用新手機登入
+		const lastRevoked = bound === 0 ? await lastRevokedDevice(emp.id) : null;
+		const waitingTransfer = lastRevoked?.reason === 'transfer';
+		if (
+			waitingTransfer &&
+			locals.transferredFrom?.employeeId === emp.id &&
+			locals.transferredFrom.deviceId === lastRevoked!.id
+		) {
 			return fail(409, {
 				username,
 				message: '你的帳號已經轉移出去了，這支舊手機不能再登入。請用新手機登入同一組帳號密碼。'
@@ -71,10 +77,11 @@ export const actions: Actions = {
 			});
 		}
 
-		const transferring = emp.role === 'staff' && bound === 0 && (await awaitingTransfer(emp.id));
-		const deviceId = await bindDevice(cookies, emp.id, request.headers.get('user-agent'));
+		const transferring = emp.role === 'staff' && waitingTransfer;
+		const model = String(form.get('model') ?? '');
+		const deviceId = await bindDevice(cookies, emp.id, request.headers.get('user-agent'), model);
 		if (transferring) {
-			const label = deviceLabel(request.headers.get('user-agent'));
+			const label = deviceLabel(request.headers.get('user-agent'), model);
 			await notify('staff', emp.id, `${emp.name} 已在新手機（${label}）登入，帳號轉移完成`, { title: '📱 換手機完成' });
 		}
 
