@@ -5,6 +5,7 @@ import { db, devices, employees, pushSubscriptions, shiftTemplates } from '#lib/
 import { hashPassword, revokeDevices } from '#lib/server/auth.js';
 import { requireOwner } from '#lib/server/guard.js';
 import { notify } from '#lib/server/notify.js';
+import { rebuildTemplateShifts } from '#lib/server/templates.js';
 import { PALETTE, checkPassword, checkUsername, str } from '#lib/server/validate.js';
 
 // 員工分頁（老闆）：員工名單、手機綁定與轉移帳號、時薪、固定班、密碼、停用
@@ -158,7 +159,8 @@ export const actions: Actions = {
 		}
 		await db.delete(shiftTemplates).where(eq(shiftTemplates.employeeId, emp.id));
 		if (rows.length) await db.insert(shiftTemplates).values(rows);
-		return { scope: 'edit', ok: `已儲存 ${emp.name} 的固定班（到月曆按「套用固定班」就會排上）` };
+		await rebuildTemplateShifts(emp.id);
+		return { scope: 'edit', ok: `已儲存 ${emp.name} 的固定班，月曆已自動排好（明天起依新的固定班）` };
 	},
 
 	/** 換手機：解除這位員工所有綁定，他用新手機登入就會自動綁新的 */

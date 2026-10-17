@@ -221,7 +221,7 @@
 		<form method="POST" action="?/saveTemplates" class="mt-5 rounded-3xl border border-line p-4" use:enhance={submit}>
 			<input type="hidden" name="id" value={editing.id} />
 			<p class="flex items-center gap-2 font-bold"><CalendarClock class="size-4 text-chili" /> 固定班</p>
-			<p class="mt-1 mb-3 text-xs text-muted">勾選每週固定上班的日子。設定後到「月曆」按「套用固定班」，就會自動排好整個月。</p>
+			<p class="mt-1 mb-3 text-xs text-muted">勾選每週固定上班的日子，儲存後會自動排進月曆（從今天起一直往後排）。某一天要調整，直接在月曆上改那天就好。</p>
 			<ul class="space-y-1.5">
 				{#each WEEK as w (w)}
 					<li class="flex items-center gap-2 rounded-2xl px-2 py-1.5 {tpl[w]?.on ? 'bg-chili-soft/50' : 'bg-paper/70'}">

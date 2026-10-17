@@ -4,6 +4,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { db, employees } from '#lib/server/db/index.js';
 import { dayPunches, firstLast, punch, shiftOn } from '#lib/server/punch.js';
 import { fenceApplies, getGeofence } from '#lib/server/geofence.js';
+import { ensureTemplateShifts } from '#lib/server/templates.js';
 import { localDay, shiftWindow } from '#lib/time.js';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -15,6 +16,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	const day = localDay();
+	await ensureTemplateShifts();
 	const [list, todayShift, fence] = await Promise.all([dayPunches(user.id, day), shiftOn(user.id, day), getGeofence()]);
 	const { first, last } = firstLast(list);
 	// 今天還沒打過 → 上班卡；打過之後每按一次都是（更新）下班卡

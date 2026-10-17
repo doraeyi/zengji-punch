@@ -1,6 +1,7 @@
 import { and, eq, gte, lt } from 'drizzle-orm';
 import { db, employees, punches, reminders, shifts } from './db';
 import { notify } from './notify';
+import { ensureTemplateShifts } from './templates';
 import { addDays, fmtDay, fmtTime, hhmm, localDay, shiftWindow, taipeiDate } from '#lib/time.js';
 
 /** 班表上班時間過了幾分鐘還沒打卡，就提醒員工 */
@@ -34,6 +35,8 @@ async function punchesOn(employeeId: number, day: string) {
 export async function runReminders(now = new Date()) {
 	const today = localDay(now);
 	const yesterday = addDays(today, -1);
+	// 先確定今天的固定班已經排進來，忘記打卡的提醒才抓得到
+	await ensureTemplateShifts();
 
 	// ① 今天有班（沒請假）、上班時間過了 5 分鐘還沒打卡 → 提醒員工本人
 	const todayShifts = await db

@@ -4,7 +4,6 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import Wand from '@lucide/svelte/icons/wand-sparkles';
 	import CheckCheck from '@lucide/svelte/icons/check-check';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import PencilLine from '@lucide/svelte/icons/pencil-line';
@@ -95,16 +94,7 @@
 
 <svelte:head><title>月曆｜曾記麻辣燙</title></svelte:head>
 
-<PageHeader kicker="CALENDAR" title="月曆班表">
-	{#snippet action()}
-		{#if data.canEdit}
-			<form method="POST" action={act("applyTemplates")} use:enhance={submit}>
-				<input type="hidden" name="month" value={data.month} />
-				<button class="btn btn-ghost px-3 py-2 text-sm" disabled={busy}><Wand class="size-4 text-chili" /> 套用固定班</button>
-			</form>
-		{/if}
-	{/snippet}
-</PageHeader>
+<PageHeader kicker="CALENDAR" title="月曆班表" />
 
 <!-- 看誰 -->
 <div class="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
@@ -133,8 +123,6 @@
 
 {#if form?.message}
 	<p class="mt-3 rounded-2xl bg-chili-soft px-4 py-3 text-sm text-chili-deep">{form.message}</p>
-{:else if form && 'generated' in form}
-	<p class="mt-3 rounded-2xl bg-jade-soft px-4 py-3 text-sm text-jade">已依固定班補上 {form.generated} 個班</p>
 {/if}
 
 <!-- 個人統計 -->

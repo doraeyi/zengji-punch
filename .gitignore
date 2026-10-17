@@ -24,3 +24,6 @@ vite.config.ts.timestamp-*
 
 # 含密碼的本機 SQL，不要上傳
 *.local.sql
+
+# 資料庫備份（含個資，不要上傳）
+/backups

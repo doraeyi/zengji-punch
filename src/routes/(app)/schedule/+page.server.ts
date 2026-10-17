@@ -1,14 +1,14 @@
 import { fail } from '@sveltejs/kit';
 import { asc, between, eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
-import { db, employees, punches, shiftTemplates, shifts } from '#lib/server/db/index.js';
+import { db, employees, punches, shifts } from '#lib/server/db/index.js';
 import { attendance, summarize, type DayRecord } from '#lib/server/attendance.js';
 import { canSchedule, requireOwner, requireScheduler } from '#lib/server/guard.js';
 import { notify } from '#lib/server/notify.js';
+import { ensureTemplateShifts } from '#lib/server/templates.js';
 import { holidaysBetween } from '#lib/server/holidays.js';
-import { pushTo } from '#lib/server/push.js';
 import { str } from '#lib/server/validate.js';
-import { fmtDay, hhmm, isDay, isMonth, localDay, monthDays, taipeiDate, weekdayOf } from '#lib/time.js';
+import { fmtDay, hhmm, isDay, isMonth, localDay, monthDays, taipeiDate } from '#lib/time.js';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const me = locals.user!;
@@ -30,6 +30,9 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	let who: number | 'all' = isOwner ? 'all' : me.id;
 	if (whoParam === 'all') who = 'all';
 	else if (whoParam && isOwner && staff.some((s) => s.id === Number(whoParam))) who = Number(whoParam);
+
+	// 固定班自動排進月曆（看未來的月份時會排到那個月底）
+	await ensureTemplateShifts(to);
 
 	const shiftRows = await db
 		.select({
@@ -104,7 +107,8 @@ export const actions: Actions = {
 			const deniedOld = old ? await assertCanTouch(owner, old.employeeId) : null;
 			if (deniedOld) return deniedOld;
 		}
-		const values = { employeeId, day, startTime: `${startTime}:00`, endTime: `${endTime}:00`, note, leave };
+		// 在月曆上動過的班就不算「自動排的」，之後改固定班也不會蓋掉
+		const values = { employeeId, day, startTime: `${startTime}:00`, endTime: `${endTime}:00`, note, leave, fromTemplate: false };
 		if (id) await db.update(shifts).set(values).where(eq(shifts.id, id));
 		else await db.insert(shifts).values(values);
 
@@ -140,43 +144,6 @@ export const actions: Actions = {
 			toEmployee: { title: '📅 你的班被取消了', body: `${fmtDay(row.day)} ${hhmm(row.startTime)}–${hhmm(row.endTime)} 不用上班`, url: '/schedule', tag: `shift-${row.day}` }
 		});
 		return { removed: true };
-	},
-
-	/** 依每個人的固定班，把這個月還沒排的日子補上 */
-	applyTemplates: async ({ request, locals }) => {
-		const owner = requireScheduler(locals);
-		const month = str(await request.formData(), 'month');
-		if (!isMonth(month)) return fail(400, { message: '月份不正確' });
-		const days = monthDays(month);
-
-		const [templates, existing, active] = await Promise.all([
-			db.select().from(shiftTemplates),
-			db.select({ employeeId: shifts.employeeId, day: shifts.day }).from(shifts).where(between(shifts.day, days[0], days.at(-1)!)),
-			db.select({ id: employees.id }).from(employees).where(eq(employees.active, true))
-		]);
-		if (!templates.length) return fail(400, { message: '還沒設定任何人的固定班（在「管理」→ 點員工設定）' });
-
-		const activeIds = new Set(active.map((a) => a.id));
-		const taken = new Set(existing.map((s) => `${s.employeeId}|${s.day}`));
-		const toInsert = days.flatMap((day) =>
-			templates
-				.filter((t) => activeIds.has(t.employeeId) && t.weekday === weekdayOf(day) && !taken.has(`${t.employeeId}|${day}`))
-				.map((t) => ({ employeeId: t.employeeId, day, startTime: t.startTime, endTime: t.endTime }))
-		);
-		if (toInsert.length) {
-			await db.insert(shifts).values(toInsert);
-			const [, m] = month.split('-').map(Number);
-			await notify('shift', null, `${owner.name} 依固定班產生 ${month} 班表，共 ${toInsert.length} 個班`, { title: '📅 班表排好了', actorId: owner.id });
-			// 每位被排到的員工各收一則
-			const counts = new Map<number, number>();
-			for (const s of toInsert) counts.set(s.employeeId, (counts.get(s.employeeId) ?? 0) + 1);
-			await Promise.all(
-				[...counts].map(([id, n]) =>
-					pushTo([id], { title: `📅 ${m} 月班表排好了`, body: `你這個月有 ${n} 個班，點開看月曆`, url: `/schedule?month=${month}`, tag: `month-${month}` })
-				)
-			);
-		}
-		return { generated: toInsert.length };
 	},
 
 	/** 老闆補登打卡（員工忘了打） */

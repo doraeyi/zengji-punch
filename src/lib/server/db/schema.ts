@@ -97,7 +97,9 @@ export const shifts = mysqlTable(
 		endTime: time('end_time').notNull(),
 		note: varchar('note', { length: 100 }),
 		/** 請假：班還在，但不用打卡、不算缺勤、不計薪 */
-		leave: boolean('leave').notNull().default(false)
+		leave: boolean('leave').notNull().default(false),
+		/** 依固定班自動排進來的；老闆在月曆上改過就變成 false（之後改固定班不會蓋掉它） */
+		fromTemplate: boolean('from_template').notNull().default(false)
 	},
 	(t) => [index('shifts_day_idx').on(t.day)]
 );
