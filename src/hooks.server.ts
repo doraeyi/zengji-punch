@@ -4,7 +4,9 @@ import { startReminderLoop } from '#lib/server/reminders.js';
 
 // 伺服器啟動時開始每分鐘檢查：忘記上班卡、半夜還沒下班卡
 export const init: ServerInit = () => {
-	startReminderLoop();
+	// Vercel 是 serverless，沒有一直開著的伺服器可以跑計時器；
+	// 那邊改由外部排程呼叫 /api/cron/reminders（見 README）
+	if (!process.env.VERCEL) startReminderLoop();
 };
 
 export const handle: Handle = async ({ event, resolve }) => {

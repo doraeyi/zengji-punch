@@ -196,6 +196,22 @@ npx web-push generate-vapid-keys
 **匯出 Excel**（「管理」→ 匯出 Excel）
 - 選日期區間下載 `.xlsx`，內含三個工作表：薪資總表（每人工時、應領、已領、未領、遲到、缺卡、請假）、每日明細（排班、上下班卡、計薪時數、金額、狀態）、發放紀錄。
 
+## 部署到 Vercel
+
+專案會自動判斷：在 Vercel 上建置時用 `@sveltejs/adapter-vercel`（函式放在**香港 hkg1**，離台灣的資料庫最近），在自己主機上就用 adapter-node，不用改程式。
+
+1. Vercel 匯入 GitHub repo `doraeyi/zengji-punch`，Framework Preset 選 **SvelteKit**（或 Other 也可以，建置後會自動用 `.vercel/output`）。
+2. **Settings → Environment Variables**，把 `.env` 裡這幾個貼上去（Vercel 支援直接貼整份 .env）：
+   `DATABASE_URL`、`VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY`、`VAPID_SUBJECT`、`CRON_SECRET`
+3. 重新部署。Vercel 給的網址本身就是 HTTPS，手機定位和推播都能用。
+4. **自動提醒要另外設排程**：Vercel 沒有一直開著的伺服器，「忘記上班卡」「半夜沒下班卡」的檢查改成呼叫網址觸發。
+   - 免費做法：到 [cron-job.org](https://cron-job.org) 建一個工作，每 1 分鐘 `GET https://你的網域/api/cron/reminders`，Header 加 `Authorization: Bearer <CRON_SECRET>`（或網址後面加 `?key=<CRON_SECRET>`）。
+   - Vercel Pro 方案也可以用內建 Cron；免費（Hobby）方案的 Cron 一天只能跑一次，不夠用。
+   - 沒設排程的話，打卡、推播、薪資都照常，只是不會有自動提醒。
+5. 資料庫要讓 Vercel 連得到：目前用 `liam.name404.com:13306` 對外的 MySQL，Vercel 的機器 IP 不固定，所以防火牆不能只開特定 IP。
+
+> 每次 push 到 GitHub 的 `main`，Vercel 就會自動重新部署。
+
 ## 部署（adapter-node）
 
 ```bash
@@ -237,7 +253,7 @@ src/
 │     ├─ attendance.ts            出勤與薪資計算（配對上下班、遲到、缺卡、每日金額、是否已領）
 │     ├─ push.ts                  Web Push 發送（失效的訂閱自動清掉）
 │     ├─ notify.ts                通知分派：記到通知中心＋推給老闆／當事員工
-│     ├─ reminders.ts             每分鐘檢查：忘記上班卡、半夜沒下班卡
+│     ├─ reminders.ts             每分鐘檢查：忘記上班卡、半夜沒下班卡（自己主機用計時器，Vercel 用 /api/cron/reminders）
 │     ├─ geofence.ts              打卡範圍設定與伺服器端距離檢查
 │     └─ holidays.ts              台灣節日（人事行政總處行事曆）與國定假日雙倍薪
 └─ routes/
@@ -248,7 +264,8 @@ src/
    ├─ (app)/account               我的帳號、改密碼
    ├─ (app)/admin                 管理後台（老闆）：通知、員工、固定班
    ├─ (app)/admin/export          匯出 Excel
-   └─ api/push                    開啟 / 關閉推播、送測試通知
+   ├─ api/push                    開啟 / 關閉推播、送測試通知
+   └─ api/cron/reminders          給外部排程呼叫的提醒檢查（要帶 CRON_SECRET）
 static/
 ├─ sw.js                          Service Worker：收推播、點通知開頁面
 ├─ manifest.webmanifest           PWA 設定（加入主畫面用）

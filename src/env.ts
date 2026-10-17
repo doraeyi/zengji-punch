@@ -15,6 +15,10 @@ export const variables = defineEnvVars({
 		description: 'Web Push 私鑰，只放伺服器。沒設定就不推播。',
 		schema: optional
 	},
+	CRON_SECRET: {
+		description: '排程網址 /api/cron/reminders 的密鑰。部署在 Vercel 這類沒有常駐伺服器的平台時，用外部排程每分鐘呼叫它來發提醒。',
+		schema: optional
+	},
 	VAPID_SUBJECT: {
 		description: '推播聯絡資訊，mailto: 開頭的 email 或網站網址',
 		schema: (value) => value || 'mailto:admin@example.com'
