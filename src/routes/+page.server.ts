@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const user = locals.user;
 	if (!user) {
 		const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(employees);
-		if (Number(count) === 0) redirect(303, '/setup');
+		if (Number(count) === 0) redirect(303, '/register');
 		return { user: null, status: null };
 	}
 

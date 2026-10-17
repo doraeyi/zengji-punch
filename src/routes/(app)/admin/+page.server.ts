@@ -125,6 +125,16 @@ export const actions: Actions = {
 		if (emp.id === me.id && role !== 'owner') return fail(400, { scope: 'edit', message: '不能把自己改成員工' });
 		await db.update(employees).set({ name, color, role, hourlyWage }).where(eq(employees.id, emp.id));
 		if (hourlyWage !== emp.hourlyWage) await notify('staff', emp.id, `${name} 時薪改為 $${hourlyWage}`);
+		if (role !== emp.role) {
+			await notify('staff', emp.id, role === 'owner' ? `${me.name} 給了 ${name} 老闆權限` : `${me.name} 取消了 ${name} 的老闆權限`, {
+				title: '🔑 權限變更',
+				actorId: me.id,
+				toEmployee:
+					role === 'owner'
+						? { title: '🔑 你有老闆權限了', body: '可以排班、發薪、管理員工，底部會多一個「管理」分頁', url: '/admin', tag: 'role' }
+						: { title: '🔑 權限已變更', body: '你的帳號改回員工', url: '/', tag: 'role' }
+			});
+		}
 		return { scope: 'edit', ok: '已儲存' };
 	},
 

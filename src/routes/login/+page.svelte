@@ -3,33 +3,20 @@
 	import Fingerprint from '@lucide/svelte/icons/fingerprint';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
-	import SquarePlus from '@lucide/svelte/icons/square-plus';
 	import AuthShell from '#lib/components/AuthShell.svelte';
-	import { isIOS, isStandalone } from '#lib/push-client.js';
+	import IosInstallTip from '#lib/components/IosInstallTip.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	let busy = $state(false);
 	const punchAfter = $derived(data.then === 'punch');
 
-	// iPhone：主畫面 App 和 Safari 分頁的登入狀態不一定共用，先加入主畫面再登入最穩
-	let iosTip = $state(false);
-	$effect(() => {
-		iosTip = isIOS() && !isStandalone();
-	});
 </script>
 
 <svelte:head><title>登入｜曾記麻辣燙</title></svelte:head>
 
 <AuthShell title="員工登入" subtitle="登入一次，這支手機就會記住你" back="/">
-	{#if iosTip}
-		<div class="mb-4 flex gap-3 rounded-3xl border border-[#f0d3a4] bg-[#fdf3e3] p-4 text-sm leading-relaxed text-[#7a4a0c]">
-			<SquarePlus class="mt-0.5 size-5 shrink-0" />
-			<p>
-				<b>iPhone 請先加入主畫面再登入：</b>點 Safari 下方的分享 →「加入主畫面」，再從主畫面的「曾記打卡」打開登入。這樣才收得到打卡通知，也不會被當成兩支手機。
-			</p>
-		</div>
-	{/if}
+	<IosInstallTip />
 	<form
 		method="POST"
 		class="card animate-rise space-y-4 p-5"
@@ -50,7 +37,7 @@
 				class="field"
 				autocomplete="username"
 				autocapitalize="none"
-				value={form?.username ?? ''}
+				defaultValue={form?.username ?? ''}
 				required
 			/>
 		</div>
@@ -75,6 +62,10 @@
 			{punchAfter ? '登入並打卡' : '登入'}
 		</button>
 	</form>
+
+	<p class="mt-4 text-center text-sm text-muted">
+		還沒有帳號？<a href="/register" class="font-bold text-chili underline underline-offset-4">註冊</a>
+	</p>
 
 	<div class="mt-5 flex gap-3 rounded-3xl bg-paper-2 p-4 text-sm leading-relaxed text-ink-2">
 		<ShieldCheck class="mt-0.5 size-5 shrink-0 text-jade" />

@@ -193,7 +193,12 @@
 				<ChevronRight class="size-5 text-muted transition group-hover:translate-x-0.5" />
 			</a>
 
-			<p class="pt-3 text-center text-xs text-muted/80">換手機或忘記密碼，請找老闆協助</p>
+			{#if !data.user}
+				<p class="pt-1 text-center text-sm text-muted">
+					新來的？<a href="/register" class="font-bold text-chili underline underline-offset-4">註冊帳號</a>
+				</p>
+			{/if}
+			<p class="pt-2 text-center text-xs text-muted/80">換手機或忘記密碼，請找老闆協助</p>
 		</section>
 	</main>
 </div>

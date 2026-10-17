@@ -321,7 +321,7 @@
 			<input type="hidden" name="id" value={editing.id} />
 			<div>
 				<label class="field-label" for="e-name">名字</label>
-				<input id="e-name" name="name" class="field" value={editing.name} required />
+				<input id="e-name" name="name" class="field" defaultValue={editing.name} required />
 			</div>
 			<p class="-mt-2 text-xs text-muted">登入帳號：{editing.username}</p>
 			{@render wageField(editing.hourlyWage)}
@@ -405,7 +405,7 @@
 		<label class="field-label" for="wage-{value ?? 'new'}">時薪（元）</label>
 		<div class="relative">
 			<span class="absolute top-1/2 left-4 -translate-y-1/2 font-bold text-muted">$</span>
-			<input id="wage-{value ?? 'new'}" name="hourlyWage" inputmode="numeric" class="field tabular pl-8" value={value ?? ''} placeholder="例如 200；老闆不計薪可留空" />
+			<input id="wage-{value ?? 'new'}" name="hourlyWage" inputmode="numeric" class="field tabular pl-8" defaultValue={value ?? ''} placeholder="例如 200；老闆不計薪可留空" />
 		</div>
 	</div>
 {/snippet}
@@ -418,9 +418,9 @@
 				<input type="radio" name="role" value="staff" class="sr-only" checked={role === 'staff'} /> 員工
 			</label>
 			<label class="cursor-pointer rounded-xl py-2.5 text-center text-sm font-bold text-muted has-checked:bg-card has-checked:text-ink has-checked:shadow-sm">
-				<input type="radio" name="role" value="owner" class="sr-only" checked={role === 'owner'} /> 老闆 / 管理者
+				<input type="radio" name="role" value="owner" class="sr-only" checked={role === 'owner'} /> 老闆權限
 			</label>
 		</div>
-		<p class="mt-1.5 text-xs text-muted">老闆可以編班表、記薪資、管理員工裝置。</p>
+		<p class="mt-1.5 text-xs text-muted">給「老闆權限」的人（例如老闆娘）可以排班、發薪、看所有人的打卡與薪水、管理員工。</p>
 	</div>
 {/snippet}
