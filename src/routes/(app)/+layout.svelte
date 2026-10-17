@@ -5,6 +5,7 @@
 	import Wallet from '@lucide/svelte/icons/wallet';
 	import Settings from '@lucide/svelte/icons/settings';
 	import UserRound from '@lucide/svelte/icons/user-round';
+	import Users from '@lucide/svelte/icons/users';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -13,9 +14,12 @@
 		{ href: '/', label: '打卡', icon: Fingerprint },
 		{ href: '/schedule', label: '月曆', icon: CalendarDays },
 		{ href: '/pay', label: '薪資', icon: Wallet },
-		data.user.role === 'owner'
-			? { href: '/admin', label: '管理', icon: Settings }
-			: { href: '/account', label: '我的', icon: UserRound }
+		...(data.user.role === 'owner'
+			? [
+					{ href: '/staff', label: '員工', icon: Users },
+					{ href: '/admin', label: '管理', icon: Settings }
+				]
+			: [{ href: '/account', label: '我的', icon: UserRound }])
 	]);
 
 	const active = (href: string) =>
@@ -30,7 +34,7 @@
 	class="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-card/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md"
 	aria-label="主選單"
 >
-	<ul class="mx-auto grid max-w-md grid-cols-4">
+	<ul class="mx-auto grid max-w-md" style:grid-template-columns="repeat({tabs.length}, minmax(0, 1fr))">
 		{#each tabs as tab (tab.href)}
 			{@const on = active(tab.href)}
 			<li>
