@@ -13,7 +13,7 @@
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Sheet from '#lib/components/Sheet.svelte';
 	import { addMonths, fmtDay, fmtDuration, fmtMoney, fmtTime, hhmm, monthDays, weekdayOf } from '#lib/time.js';
-	import { hours, shortName, shortTime } from '#lib/display.js';
+	import { hours, shortHoliday, shortName, shortTime } from '#lib/display.js';
 	import { page } from '$app/state';
 	import type { PageProps } from './$types';
 
@@ -24,8 +24,10 @@
 
 	const isOwner = $derived(data.user.role === 'owner');
 	const days = $derived(monthDays(data.month));
-	/** 週一開頭，前面補空格 */
-	const lead = $derived((weekdayOf(days[0]) + 6) % 7);
+	/** 週日開頭，前面補空格 */
+	const lead = $derived(weekdayOf(days[0]));
+	/** 六日與節日的日期用紅字 */
+	const isRed = (day: string) => !!data.holidays[day] || weekdayOf(day) === 0 || weekdayOf(day) === 6;
 	const [y, m] = $derived(data.month.split('-').map(Number));
 	const focus = $derived(data.who === 'all' ? null : data.who);
 	const person = (id: number) => data.staff.find((s) => s.id === id);
@@ -167,7 +169,7 @@
 <!-- 月曆 -->
 <div class="card mt-3 overflow-hidden p-1.5">
 	<div class="grid grid-cols-7 pb-1 text-center text-[11px] font-bold text-muted">
-		{#each ['一', '二', '三', '四', '五', '六', '日'] as w (w)}<span class="py-1 {w === '日' || w === '六' ? 'text-chili/70' : ''}">{w}</span>{/each}
+		{#each ['日', '一', '二', '三', '四', '五', '六'] as w (w)}<span class="py-1 {w === '日' || w === '六' ? 'text-chili' : ''}">{w}</span>{/each}
 	</div>
 	<div class="grid grid-cols-7 gap-1">
 		{#each { length: lead } as _, i (i)}<span></span>{/each}
@@ -184,9 +186,14 @@
 					onclick={() => (openDay = day)}
 				>
 					<span class="flex items-center justify-between">
-						<span class="tabular text-xs font-bold {isToday ? 'grid size-5 place-items-center rounded-full bg-chili text-white' : 'text-ink-2'}">{Number(day.slice(8))}</span>
-						{#if rec?.payoutId && rec.amount}<CheckCheck class="size-3.5 text-jade" strokeWidth={3} />{/if}
+						{@render dayNum(day, isToday)}
+						{#if rec?.multiplier === 2}
+							<span class="rounded bg-chili px-0.5 text-[9px] leading-[13px] font-black text-white">×2</span>
+						{:else if rec?.payoutId && rec.amount}
+							<CheckCheck class="size-3.5 text-jade" strokeWidth={3} />
+						{/if}
 					</span>
+					{@render holidayName(day)}
 					{#if shift?.leave}
 						<span class="mt-0.5 rounded bg-[#f6dfb8] px-0.5 text-center text-[10px] font-bold text-[#8a4b08]">請假</span>
 					{:else if shift}
@@ -203,7 +210,9 @@
 						<span class="text-[10px] leading-tight text-chili">未到</span>
 					{/if}
 					{#if rec?.amount}
-						<span class="tabular mt-auto text-[11px] font-black {rec.payoutId ? 'text-jade' : 'text-ink'}">${rec.amount}</span>
+						<span class="tabular mt-auto text-[11px] font-black {rec.payoutId ? 'text-jade' : 'text-ink'}">
+							${rec.amount}
+						</span>
 					{/if}
 					{#if rec?.payoutId && rec.amount}<span class="absolute inset-x-1 bottom-0.5 h-0.5 rounded-full bg-jade/60"></span>{/if}
 				</button>
@@ -212,7 +221,8 @@
 					class="flex min-h-[86px] min-w-0 flex-col gap-0.5 rounded-xl bg-paper/70 px-1 pt-1 pb-1 text-left transition active:scale-95 {isToday ? 'ring-2 ring-chili' : ''}"
 					onclick={() => (openDay = day)}
 				>
-					<span class="tabular text-xs font-bold {isToday ? 'grid size-5 place-items-center rounded-full bg-chili text-white' : 'text-ink-2'}">{Number(day.slice(8))}</span>
+					{@render dayNum(day, isToday)}
+					{@render holidayName(day)}
 					{#each list.slice(0, 4) as s (s.id)}
 						{@const p = person(s.employeeId)}
 						{@const done = recordOf(s.employeeId, day)?.sessions.length}
@@ -249,7 +259,11 @@
 </div>
 
 <!-- 某一天 -->
-<Sheet open={!!openDay && !draft && !punchFix} title={openDay ? fmtDay(openDay) : ''} onclose={() => (openDay = null)}>
+<Sheet
+	open={!!openDay && !draft && !punchFix}
+	title={openDay ? `${fmtDay(openDay)}${data.holidays[openDay] ? `　${data.holidays[openDay].name}` : ''}` : ''}
+	onclose={() => (openDay = null)}
+>
 	{#if openDay}
 		<ul class="space-y-2.5">
 			{#each dayPeople as { p, shift, rec } (p.id)}
@@ -291,11 +305,14 @@
 						{/if}
 						{#if rec.paidMinutes}
 							<div class="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-card px-3.5 py-2.5">
-								<span class="tabular text-sm text-ink-2">
-									{fmtDuration(rec.paidMinutes)}{#if p.hourlyWage} × {fmtMoney(p.hourlyWage)}{/if}
+								<span class="tabular min-w-0 text-sm text-ink-2">
+									<span class="block">{fmtDuration(rec.paidMinutes)}{#if p.hourlyWage} × {fmtMoney(p.hourlyWage)}{/if}</span>
+									{#if rec.multiplier === 2}
+										<span class="mt-0.5 inline-block rounded bg-chili px-1.5 text-xs font-bold text-white">國定假日 ×2</span>
+									{/if}
 								</span>
-								<span class="flex items-center gap-2">
-									{#if rec.payoutId}<span class="chip bg-jade-soft text-jade">已領</span>{:else}<span class="chip bg-paper-2 text-muted">未領</span>{/if}
+								<span class="flex shrink-0 items-center gap-2">
+									{#if rec.payoutId}<span class="chip whitespace-nowrap bg-jade-soft text-jade">已領</span>{:else}<span class="chip whitespace-nowrap bg-paper-2 text-muted">未領</span>{/if}
 									<span class="tabular font-serif text-xl font-black">{fmtMoney(rec.amount)}</span>
 								</span>
 							</div>
@@ -319,6 +336,22 @@
 		{/if}
 	{/if}
 </Sheet>
+
+{#snippet dayNum(day: string, isToday: boolean)}
+	<span
+		class="tabular text-xs font-bold {isToday
+			? 'grid size-5 place-items-center rounded-full bg-chili text-white'
+			: isRed(day)
+				? 'text-chili'
+				: 'text-ink-2'}">{Number(day.slice(8))}</span
+	>
+{/snippet}
+
+{#snippet holidayName(day: string)}
+	{#if data.holidays[day]}
+		<span class="truncate text-[9px] leading-tight font-bold {data.holidays[day].double ? 'text-chili' : 'text-chili/60'}">{shortHoliday(data.holidays[day].name)}</span>
+	{/if}
+{/snippet}
 
 {#snippet stamp(p: { id: number; at: Date; source: string; distance: number | null } | null, kind: 'in' | 'out')}
 	{#if p}

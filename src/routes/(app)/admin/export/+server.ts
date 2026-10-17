@@ -77,6 +77,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		{ header: '計薪時數', key: 'hours', width: 10, style: { numFmt: '0.00' } },
 		{ header: '時薪', key: 'wage', width: 9, style: { numFmt: '"$"#,##0' } },
 		{ header: '金額', key: 'amount', width: 10, style: { numFmt: '"$"#,##0' } },
+		{ header: '節日', key: 'holiday', width: 12 },
+		{ header: '倍率', key: 'multiplier', width: 6 },
 		{ header: '狀態', key: 'status', width: 9 },
 		{ header: '遲到(分)', key: 'late', width: 9 },
 		{ header: '已領', key: 'paid', width: 7 }
@@ -113,6 +115,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 				hours: d.paidMinutes ? Math.round((d.paidMinutes / 60) * 100) / 100 : null,
 				wage: p.wage,
 				amount: d.amount || null,
+				holiday: d.holiday?.name ?? '',
+				multiplier: d.multiplier === 2 ? '×2' : '',
 				status: STATUS[d.status],
 				late: d.lateMinutes || null,
 				paid: d.amount ? (d.payoutId ? '✓' : '') : ''

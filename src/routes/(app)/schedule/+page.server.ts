@@ -5,6 +5,7 @@ import { db, employees, punches, shiftTemplates, shifts } from '#lib/server/db/i
 import { attendance, summarize, type DayRecord } from '#lib/server/attendance.js';
 import { requireOwner } from '#lib/server/guard.js';
 import { notify } from '#lib/server/notify.js';
+import { holidaysBetween } from '#lib/server/holidays.js';
 import { pushTo } from '#lib/server/push.js';
 import { str } from '#lib/server/validate.js';
 import { fmtDay, hhmm, isDay, isMonth, localDay, monthDays, taipeiDate, weekdayOf } from '#lib/time.js';
@@ -47,7 +48,10 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	// 打卡與薪資：老闆看得到所有人，員工只看得到自己
 	const visible = isOwner ? staff.map((s) => s.id) : [me.id];
 	const records: Record<number, DayRecord[]> = {};
-	await Promise.all(visible.map(async (id) => (records[id] = await attendance(id, from, to))));
+	const [holidays] = await Promise.all([
+		holidaysBetween(from, to),
+		...visible.map(async (id) => (records[id] = await attendance(id, from, to)))
+	]);
 
 	const focus = who === 'all' ? null : who;
 	return {
@@ -57,7 +61,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		who,
 		shifts: shiftRows,
 		records,
-		summary: focus && records[focus] ? summarize(records[focus]) : null
+		summary: focus && records[focus] ? summarize(records[focus]) : null,
+		holidays
 	};
 };
 

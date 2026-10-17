@@ -1,6 +1,7 @@
 import { and, asc, between, eq, gte, lt, lte } from 'drizzle-orm';
 import { db, employees, payouts, punches, shifts } from './db';
 import { addDays, localDay, shiftWindow, taipeiDate } from '#lib/time.js';
+import { holidayDoublePay, holidaysBetween, type Holiday } from './holidays';
 
 /** 晚幾分鐘以上才算遲到 */
 const LATE_GRACE_MIN = 5;
@@ -18,8 +19,12 @@ export type DayRecord = {
 	minutes: number;
 	/** 計薪分鐘數（早到不算，晚走照算） */
 	paidMinutes: number;
-	/** 當天薪資（元） */
+	/** 當天薪資（元），國定假日上班已經乘上倍率 */
 	amount: number;
+	/** 台灣節日（含補假），沒有就是 null */
+	holiday: Holiday | null;
+	/** 1 = 平日；2 = 國定假日上班雙倍 */
+	multiplier: 1 | 2;
 	lateMinutes: number;
 	/** 這天被哪一筆發薪紀錄涵蓋（已領） */
 	payoutId: number | null;
@@ -37,7 +42,7 @@ export type DayRecord = {
  * - 還沒打下班卡的那段先不算錢。
  */
 export async function attendance(employeeId: number, from: string, to: string): Promise<DayRecord[]> {
-	const [punchRows, shiftRows, payoutRows, [emp]] = await Promise.all([
+	const [punchRows, shiftRows, payoutRows, [emp], holidays, doublePay] = await Promise.all([
 		db
 			.select({ id: punches.id, kind: punches.kind, at: punches.at, source: punches.source, distance: punches.distance })
 			.from(punches)
@@ -65,7 +70,9 @@ export async function attendance(employeeId: number, from: string, to: string): 
 			.select({ id: payouts.id, periodStart: payouts.periodStart, periodEnd: payouts.periodEnd })
 			.from(payouts)
 			.where(and(eq(payouts.employeeId, employeeId), lte(payouts.periodStart, to), gte(payouts.periodEnd, from))),
-		db.select({ wage: employees.hourlyWage, role: employees.role }).from(employees).where(eq(employees.id, employeeId))
+		db.select({ wage: employees.hourlyWage, role: employees.role }).from(employees).where(eq(employees.id, employeeId)),
+		holidaysBetween(from, to),
+		holidayDoublePay()
 	]);
 	const wage = emp?.wage ?? 0;
 	// 老闆 / 老闆娘排了班但不一定打卡，沒打卡不算缺勤
@@ -116,6 +123,8 @@ export async function attendance(employeeId: number, from: string, to: string): 
 		else status = window!.end < now ? 'absent' : 'upcoming';
 
 		const payout = payoutRows.find((p) => p.periodStart <= day && day <= p.periodEnd);
+		const holiday = holidays[day] ?? null;
+		const multiplier = doublePay && holiday?.double && paidMinutes > 0 ? 2 : 1;
 		days.push({
 			day,
 			shift,
@@ -123,7 +132,9 @@ export async function attendance(employeeId: number, from: string, to: string): 
 			extra,
 			minutes,
 			paidMinutes,
-			amount: Math.round((paidMinutes * wage) / 60),
+			amount: Math.round(((paidMinutes * wage) / 60) * multiplier),
+			holiday,
+			multiplier,
 			lateMinutes,
 			payoutId: payout?.id ?? null,
 			status

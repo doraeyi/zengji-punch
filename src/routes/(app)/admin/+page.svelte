@@ -223,6 +223,21 @@
 	<p class="mt-2 text-xs text-muted">只限制員工；老闆 / 老闆娘在哪裡都能打卡。補登打卡不受影響。</p>
 </form>
 
+<!-- 國定假日雙倍薪 -->
+<form method="POST" action="?/setDoublePay" class="card mt-3 flex items-center gap-3 p-4" use:enhance={submit}>
+	<span class="grid size-11 shrink-0 place-items-center rounded-2xl {data.doublePay ? 'bg-chili text-white' : 'bg-paper-2 text-muted'}">
+		<span class="font-serif text-lg font-black">×2</span>
+	</span>
+	<div class="min-w-0 flex-1">
+		<p class="font-bold">國定假日雙倍薪</p>
+		<p class="text-xs text-muted">國慶日、春節這類國定假日上班，薪水自動 ×2。補假、小年夜不算。節日資料來自人事行政總處行事曆。</p>
+	</div>
+	<input type="hidden" name="on" value={data.doublePay ? '' : 'on'} />
+	<button class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition {data.doublePay ? 'bg-chili' : 'bg-line'}" disabled={busy} aria-label={data.doublePay ? '關閉國定假日雙倍薪' : '開啟國定假日雙倍薪'}>
+		<span class="absolute left-1 size-5 rounded-full bg-white shadow transition {data.doublePay ? 'translate-x-5' : ''}"></span>
+	</button>
+</form>
+
 <!-- 推播 -->
 <div class="mt-3"><PushToggle role="owner" /></div>
 {#if !data.pushReady}

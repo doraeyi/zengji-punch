@@ -7,6 +7,7 @@ import { requireOwner } from '#lib/server/guard.js';
 import { notify } from '#lib/server/notify.js';
 import { pushConfigured } from '#lib/server/push.js';
 import { getGeofence, saveGeofence } from '#lib/server/geofence.js';
+import { holidayDoublePay, setHolidayDoublePay } from '#lib/server/holidays.js';
 import { isValidPoint } from '#lib/geo.js';
 import { PALETTE, checkPassword, checkUsername, str } from '#lib/server/validate.js';
 
@@ -15,7 +16,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	// 先讓 layout 算完未讀數，再把通知標成已讀
 	await parent();
 
-	const [people, deviceRows, feed, templates, [self], subs, fence] = await Promise.all([
+	const [people, deviceRows, feed, templates, [self], subs, fence, doublePay] = await Promise.all([
 		db
 			.select({
 				id: employees.id,
@@ -54,7 +55,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		db.select().from(shiftTemplates),
 		db.select({ seen: employees.seenNotificationId }).from(employees).where(eq(employees.id, me.id)),
 		db.select({ employeeId: pushSubscriptions.employeeId }).from(pushSubscriptions),
-		getGeofence()
+		getGeofence(),
+		holidayDoublePay()
 	]);
 
 	const seen = self?.seen ?? 0;
@@ -74,6 +76,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		feed: feed.map((f) => ({ ...f, unread: f.id > seen })),
 		pushReady: pushConfigured(),
 		fence,
+		doublePay,
 		palette: PALETTE
 	};
 };
@@ -179,6 +182,15 @@ export const actions: Actions = {
 	},
 
 	/** 打卡範圍：店家座標 + 半徑，員工要在範圍內才能打卡 */
+	/** 國定假日上班雙倍薪：開 / 關 */
+	setDoublePay: async ({ request, locals }) => {
+		const me = requireOwner(locals);
+		const on = (await request.formData()).get('on') === 'on';
+		await setHolidayDoublePay(on);
+		await notify('staff', null, on ? '國定假日上班改為雙倍薪' : '國定假日上班改為一般時薪', { actorId: me.id, title: '💰 薪資規則' });
+		return { scope: 'pay', ok: on ? '已開啟：國定假日上班算雙倍薪' : '已關閉：國定假日照一般時薪算' };
+	},
+
 	saveFence: async ({ request, locals }) => {
 		const me = requireOwner(locals);
 		const form = await request.formData();

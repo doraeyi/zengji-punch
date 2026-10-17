@@ -14,3 +14,14 @@ export function shortTime(t: string): string {
 export function hours(minutes: number): string {
 	return String(Math.round((minutes / 60) * 10) / 10);
 }
+
+/** 月曆格子放不下長名稱，用大家習慣的簡稱；點開那天會顯示全名 */
+const HOLIDAY_SHORT: Record<string, string> = {
+	開國紀念日: '元旦',
+	和平紀念日: '228',
+	農曆除夕: '除夕',
+	行憲紀念日: '行憲紀念'
+};
+export function shortHoliday(name: string): string {
+	return HOLIDAY_SHORT[name] ?? name;
+}

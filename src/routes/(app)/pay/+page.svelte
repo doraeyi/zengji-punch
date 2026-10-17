@@ -138,7 +138,7 @@
 		<li class="flex items-center gap-3 px-4 py-3">
 			<div class="w-14 shrink-0">
 				<p class="tabular font-bold">{fmtDay(d.day, false)}</p>
-				<p class="text-xs text-muted">週{'日一二三四五六'[new Date(d.day).getUTCDay()]}</p>
+				<p class="text-xs {d.holiday ? 'font-bold text-chili' : 'text-muted'}">{d.holiday ? d.holiday.name : `週${'日一二三四五六'[new Date(d.day).getUTCDay()]}`}</p>
 			</div>
 			<div class="min-w-0 flex-1 text-sm">
 				{#if d.status === 'leave'}
@@ -149,7 +149,11 @@
 					<p class="tabular text-ink-2">
 						{first ? fmtTime(first.at) : '—'} → {last ? fmtTime(last.at) : d.status === 'working' ? '上班中' : '缺卡'}
 					</p>
-					{#if d.paidMinutes}<p class="text-xs text-muted">{fmtDuration(d.paidMinutes)}</p>{/if}
+					{#if d.paidMinutes}
+						<p class="text-xs text-muted">
+							{fmtDuration(d.paidMinutes)}{#if d.multiplier === 2}<span class="ml-1 rounded bg-chili-soft px-1 font-bold text-chili-deep">國定假日 ×2</span>{/if}
+						</p>
+					{/if}
 				{/if}
 			</div>
 			<div class="text-right">
