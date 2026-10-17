@@ -115,3 +115,33 @@
 .time-compact {
 	text-align: center;
 }
+
+/*
+ * iPhone Safari：日期 / 時間欄位有內建的最小寬度，會無視 width: 100%，
+ * 兩欄排版時把畫面撐爆（下班欄位跑出螢幕外）。這裡把它們變回一般欄位。
+ */
+input[type='date'],
+input[type='time'] {
+	-webkit-appearance: none;
+	appearance: none;
+	min-width: 0;
+	max-width: 100%;
+	/* appearance: none 之後 iPhone 空白日期欄位會塌掉，給個最小高度 */
+	min-height: 2.75rem;
+	line-height: normal;
+}
+input.time-compact {
+	min-height: 2.25rem;
+}
+input[type='date']::-webkit-date-and-time-value,
+input[type='time']::-webkit-date-and-time-value {
+	text-align: left;
+	min-width: 0;
+}
+.time-compact::-webkit-date-and-time-value {
+	text-align: center;
+}
+/* 格線 / 橫排裡包著日期時間欄位的那一格也要允許縮小，不然還是會被撐開 */
+:where(.grid, .flex) > :has(> input[type='date'], > input[type='time']) {
+	min-width: 0;
+}

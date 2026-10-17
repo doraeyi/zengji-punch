@@ -218,11 +218,11 @@
 			</div>
 		</div>
 		<div class="grid grid-cols-2 gap-3">
-			<div>
+			<div class="min-w-0">
 				<label class="field-label" for="ps">期間開始</label>
 				<input id="ps" name="periodStart" type="date" class="field" bind:value={draft.periodStart} required />
 			</div>
-			<div>
+			<div class="min-w-0">
 				<label class="field-label" for="pe">期間結束</label>
 				<input id="pe" name="periodEnd" type="date" class="field" bind:value={draft.periodEnd} required />
 			</div>

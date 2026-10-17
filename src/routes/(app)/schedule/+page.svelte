@@ -391,16 +391,16 @@
 					{/each}
 				</div>
 			</div>
-			<div>
+			<div class="min-w-0">
 				<label class="field-label" for="day">日期</label>
 				<input id="day" name="day" type="date" class="field" bind:value={draft.day} required />
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				<div>
+				<div class="min-w-0">
 					<label class="field-label" for="st">上班</label>
 					<input id="st" name="startTime" type="time" class="field tabular" bind:value={draft.startTime} required />
 				</div>
-				<div>
+				<div class="min-w-0">
 					<label class="field-label" for="et">下班</label>
 					<input id="et" name="endTime" type="time" class="field tabular" bind:value={draft.endTime} required />
 				</div>
@@ -444,7 +444,7 @@
 					<input type="radio" name="kind" value="out" class="sr-only" /> 下班
 				</label>
 			</div>
-			<div>
+			<div class="min-w-0">
 				<label class="field-label" for="fix-time">時間</label>
 				<input id="fix-time" name="time" type="time" class="field tabular" required />
 			</div>
