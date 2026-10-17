@@ -12,6 +12,8 @@ declare global {
 			/** 這支裝置綁定的員工；沒綁定就是 null */
 			user: User | null;
 			deviceId: number | null;
+			/** 這支手機原本的帳號已被老闆轉移到新手機（記住是誰，避免舊手機再登回去） */
+			transferredFrom: number | null;
 		}
 		// interface Error {}
 		// interface PageData {}

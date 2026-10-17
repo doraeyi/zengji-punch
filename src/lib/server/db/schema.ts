@@ -124,6 +124,8 @@ export const pushSubscriptions = mysqlTable(
 		employeeId: int('employee_id')
 			.notNull()
 			.references(() => employees.id),
+		/** 是哪一支綁定的手機訂閱的；手機被解除綁定時一起刪掉 */
+		deviceId: int('device_id'),
 		endpoint: varchar('endpoint', { length: 500 }).notNull(),
 		p256dh: varchar('p256dh', { length: 200 }).notNull(),
 		auth: varchar('auth', { length: 100 }).notNull(),

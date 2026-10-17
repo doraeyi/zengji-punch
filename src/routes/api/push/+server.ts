@@ -30,6 +30,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
 		await db.insert(pushSubscriptions).values({
 			employeeId: me.id,
+			deviceId: locals.deviceId,
 			endpoint,
 			p256dh,
 			auth,

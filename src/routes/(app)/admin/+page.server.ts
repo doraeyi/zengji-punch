@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { asc, desc, eq, isNull } from 'drizzle-orm';
+import { asc, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { db, devices, employees, notifications, pushSubscriptions, shiftTemplates } from '#lib/server/db/index.js';
 import { hashPassword, revokeDevices } from '#lib/server/auth.js';
@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	// 先讓 layout 算完未讀數，再把通知標成已讀
 	await parent();
 
-	const [people, deviceRows, feed, templates, [self], subs, fence, doublePay] = await Promise.all([
+	const [people, deviceRows, feed, templates, [self], subs, fence, doublePay, revokedRows] = await Promise.all([
 		db
 			.select({
 				id: employees.id,
@@ -56,7 +56,18 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		db.select({ seen: employees.seenNotificationId }).from(employees).where(eq(employees.id, me.id)),
 		db.select({ employeeId: pushSubscriptions.employeeId }).from(pushSubscriptions),
 		getGeofence(),
-		holidayDoublePay()
+		holidayDoublePay(),
+		// 最近被解除綁定的手機（看誰在「等新手機登入」）
+		db
+			.select({
+				employeeId: devices.employeeId,
+				label: devices.label,
+				revokedAt: devices.revokedAt,
+				reason: devices.revokeReason
+			})
+			.from(devices)
+			.where(isNotNull(devices.revokedAt))
+			.orderBy(desc(devices.revokedAt))
 	]);
 
 	const seen = self?.seen ?? 0;
@@ -69,6 +80,12 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		people: people.map((p) => ({
 			...p,
 			devices: deviceRows.filter((d) => d.employeeId === p.id),
+			/** 老闆按了轉移帳號、新手機還沒登入 */
+			waiting: (() => {
+				if (deviceRows.some((d) => d.employeeId === p.id)) return null;
+				const last = revokedRows.find((r) => r.employeeId === p.id);
+				return last?.reason === 'transfer' ? { label: last.label, at: last.revokedAt! } : null;
+			})(),
 			templates: templates.filter((t) => t.employeeId === p.id),
 			/** 開了幾台裝置的推播通知 */
 			pushDevices: subs.filter((x) => x.employeeId === p.id).length
@@ -162,12 +179,19 @@ export const actions: Actions = {
 	},
 
 	/** 換手機：解除這位員工所有綁定，他用新手機登入就會自動綁新的 */
-	unbind: async ({ request, locals }) => {
-		requireOwner(locals);
+	/**
+	 * 轉移帳號（換手機）：舊手機立刻失效、推播停掉，也不能再登回這個帳號；
+	 * 員工用新手機登入同一組帳號密碼，資料（打卡、班表、薪資）全部都在。
+	 */
+	transfer: async ({ request, locals }) => {
+		const me = requireOwner(locals);
 		const emp = await getEmployee(Number((await request.formData()).get('id')));
+		if (emp.id === me.id) return fail(400, { scope: 'edit', message: '不能轉移自己的帳號；要換手機請直接在新手機登入（老闆可以多支裝置）' });
 		await revokeDevices(emp.id, 'transfer');
-		return { scope: 'edit', ok: `已解除 ${emp.name} 的手機綁定，請他用新手機登入` };
+		await notify('staff', emp.id, `轉移 ${emp.name} 的帳號，等他用新手機登入`, { title: '📱 轉移帳號', actorId: me.id });
+		return { scope: 'edit', ok: `已轉移 ${emp.name} 的帳號：舊手機已停用，請他用新手機登入同一組帳號密碼` };
 	},
+
 
 	resetPassword: async ({ request, locals }) => {
 		requireOwner(locals);

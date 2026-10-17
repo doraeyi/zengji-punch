@@ -1,8 +1,8 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Cookies } from '@sveltejs/kit';
-import { and, eq, isNull } from 'drizzle-orm';
-import { db, devices, employees } from './db';
+import { and, desc, eq, isNull } from 'drizzle-orm';
+import { db, devices, employees, pushSubscriptions } from './db';
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
@@ -37,6 +37,16 @@ export function setDeviceCookie(cookies: Cookies, token: string) {
 
 export function clearDeviceCookie(cookies: Cookies) {
 	cookies.delete(DEVICE_COOKIE, { path: '/' });
+}
+
+/** 這支手機的帳號是不是剛被轉移走（老闆按了「轉移帳號」） */
+export async function transferredFrom(token: string): Promise<number | null> {
+	const [row] = await db
+		.select({ employeeId: devices.employeeId, reason: devices.revokeReason })
+		.from(devices)
+		.where(eq(devices.tokenHash, sha256(token)))
+		.limit(1);
+	return row?.reason === 'transfer' ? row.employeeId : null;
 }
 
 /** 用 cookie 裡的裝置 token 找出目前是誰。裝置被解除綁定或帳號停用都會回傳 null。 */
@@ -110,12 +120,13 @@ export async function bindDevice(cookies: Cookies, employeeId: number, ua: strin
 	return row.id;
 }
 
-/** 解除某位員工所有有效裝置（換手機、改密碼、重設密碼時用） */
+/** 解除某位員工所有有效裝置（轉移帳號、改密碼、重設密碼時用）；舊手機的推播也一併停掉 */
 export async function revokeDevices(employeeId: number, reason: string) {
 	await db
 		.update(devices)
 		.set({ revokedAt: new Date(), revokeReason: reason })
 		.where(and(eq(devices.employeeId, employeeId), isNull(devices.revokedAt)));
+	await db.delete(pushSubscriptions).where(eq(pushSubscriptions.employeeId, employeeId));
 }
 
 export async function revokeDevice(deviceId: number, reason: string) {
@@ -123,6 +134,7 @@ export async function revokeDevice(deviceId: number, reason: string) {
 		.update(devices)
 		.set({ revokedAt: new Date(), revokeReason: reason })
 		.where(and(eq(devices.id, deviceId), isNull(devices.revokedAt)));
+	await db.delete(pushSubscriptions).where(eq(pushSubscriptions.deviceId, deviceId));
 }
 
 export async function activeDeviceCount(employeeId: number) {
@@ -158,4 +170,15 @@ export function recordLoginFailure(key: string) {
 
 export function clearLoginFailures(key: string) {
 	failures.delete(key);
+}
+
+/** 這位員工是不是在「等新手機登入」：最近一次解除綁定的原因是轉移帳號 */
+export async function awaitingTransfer(employeeId: number) {
+	const [last] = await db
+		.select({ reason: devices.revokeReason })
+		.from(devices)
+		.where(eq(devices.employeeId, employeeId))
+		.orderBy(desc(devices.revokedAt))
+		.limit(1);
+	return last?.reason === 'transfer';
 }

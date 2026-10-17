@@ -4,6 +4,8 @@ import type { Actions, PageServerLoad } from './$types';
 import { db, employees } from '#lib/server/db/index.js';
 import {
 	activeDeviceCount,
+	awaitingTransfer,
+	deviceLabel,
 	bindDevice,
 	clearLoginFailures,
 	loginLocked,
@@ -11,6 +13,7 @@ import {
 	verifyPassword
 } from '#lib/server/auth.js';
 import { punch } from '#lib/server/punch.js';
+import { notify } from '#lib/server/notify.js';
 import { fenceApplies, getGeofence } from '#lib/server/geofence.js';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -49,16 +52,31 @@ export const actions: Actions = {
 			});
 		}
 
-		// 一般員工只能綁一支手機；換手機要老闆先在後台解除綁定
-		if (emp.role === 'staff' && (await activeDeviceCount(emp.id)) > 0) {
+		const bound = await activeDeviceCount(emp.id);
+
+		// 老闆按了「轉移帳號」之後，舊手機不能再登回這個帳號，要用新手機登入
+		if (locals.transferredFrom === emp.id && bound === 0) {
 			return fail(409, {
 				username,
-				bound: true,
-				message: '你的帳號已經綁定在另一支手機上。換手機請找老闆在後台「解除綁定」後再登入。'
+				message: '你的帳號已經轉移出去了，這支舊手機不能再登入。請用新手機登入同一組帳號密碼。'
 			});
 		}
 
+		// 一般員工只能綁一支手機；換手機要老闆先在後台按「轉移帳號」
+		if (emp.role === 'staff' && bound > 0) {
+			return fail(409, {
+				username,
+				bound: true,
+				message: '你的帳號已經綁定在另一支手機上。換手機請找老闆在後台按「轉移帳號」後，再用新手機登入。'
+			});
+		}
+
+		const transferring = emp.role === 'staff' && bound === 0 && (await awaitingTransfer(emp.id));
 		const deviceId = await bindDevice(cookies, emp.id, request.headers.get('user-agent'));
+		if (transferring) {
+			const label = deviceLabel(request.headers.get('user-agent'));
+			await notify('staff', emp.id, `${emp.name} 已在新手機（${label}）登入，帳號轉移完成`, { title: '📱 換手機完成' });
+		}
 
 		if (then === 'punch') {
 			// 有打卡範圍時，登入頁拿不到定位，回首頁讓他靠近店家再按

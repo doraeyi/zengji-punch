@@ -5,7 +5,8 @@
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import Smartphone from '@lucide/svelte/icons/smartphone';
 	import SmartphoneNfc from '@lucide/svelte/icons/smartphone-nfc';
-	import Unlink from '@lucide/svelte/icons/unlink';
+	import ArrowRightLeft from '@lucide/svelte/icons/arrow-right-left';
+	import Hourglass from '@lucide/svelte/icons/hourglass';
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Ban from '@lucide/svelte/icons/ban';
@@ -57,6 +58,12 @@
 	const WEEK = [1, 2, 3, 4, 5, 6, 0];
 	const WD = ['日', '一', '二', '三', '四', '五', '六'];
 	let tpl = $state<{ on: boolean; start: string; end: string }[]>([]);
+
+	const transferConfirm = (p: Person) =>
+		`確定要轉移「${p.name}」的帳號到新手機？
+
+舊手機（${p.devices[0]?.label ?? '目前綁定的手機'}）會立刻不能打卡，也不能再登入這個帳號。
+請他用新手機登入同一組帳號密碼。`;
 
 	function openEdit(p: Person) {
 		editingId = p.id;
@@ -244,6 +251,37 @@
 	<p class="mt-2 px-1 text-xs text-chili-deep">伺服器還沒設定 VAPID 推播金鑰，手機收不到通知（見 README）。</p>
 {/if}
 
+<!-- 手機綁定總覽 -->
+<h2 class="mt-6 mb-2.5 flex items-center gap-2 px-1 text-sm font-bold tracking-widest text-muted"><Smartphone class="size-4" /> 手機綁定</h2>
+<ul class="card divide-y divide-line/60">
+	{#each data.people.filter((p) => p.active) as p (p.id)}
+		<li class="flex items-center gap-3 px-4 py-3">
+			<span class="size-2.5 shrink-0 rounded-full" style:background={p.color}></span>
+			<div class="min-w-0 flex-1">
+				<p class="font-bold">{p.name}{#if p.role === 'owner'}<span class="ml-1.5 text-xs font-medium text-chili">老闆</span>{/if}</p>
+				{#if p.devices.length}
+					<p class="truncate text-xs text-ink-2">
+						{p.devices[0].label}{#if p.devices.length > 1}　+{p.devices.length - 1} 台{/if}
+					</p>
+					<p class="text-[11px] text-muted">{fmtDay(localDay(p.devices[0].createdAt), false)} 綁定 · 最後使用 {lastSeen(p.devices[0].lastSeenAt)}</p>
+				{:else if p.waiting}
+					<p class="flex items-center gap-1 text-xs font-medium text-[#a35a0c]"><Hourglass class="size-3" /> 等新手機登入</p>
+					<p class="truncate text-[11px] text-muted">舊手機 {p.waiting.label} 已在 {lastSeen(p.waiting.at)} 停用</p>
+				{:else}
+					<p class="text-xs text-muted">尚未綁定手機</p>
+				{/if}
+			</div>
+			{#if p.devices.length && p.id !== data.user.id}
+				<form method="POST" action="?/transfer" use:enhance={submit} onsubmit={(e) => { if (!confirm(transferConfirm(p))) e.preventDefault(); }}>
+					<input type="hidden" name="id" value={p.id} />
+					<button class="btn btn-ghost shrink-0 px-3 py-2 text-sm" disabled={busy}><ArrowRightLeft class="size-4 text-chili" /> 轉移帳號</button>
+				</form>
+			{/if}
+		</li>
+	{/each}
+</ul>
+<p class="mt-2 px-1 text-xs leading-relaxed text-muted">員工換手機：按「轉移帳號」→ 請他用新手機登入同一組帳號密碼。舊手機會立刻停用，也不能再登回來。</p>
+
 <!-- 員工 -->
 <div class="mt-6 mb-2.5 flex items-center justify-between px-1">
 	<h2 class="text-sm font-bold tracking-widest text-muted">員工與裝置</h2>
@@ -323,11 +361,11 @@
 				<p class="mb-2 text-sm text-muted">目前沒有綁定，他下次登入時就會綁定那支手機。</p>
 			{/each}
 			{#if editing.devices.length}
-				<form method="POST" action="?/unbind" use:enhance={submit} onsubmit={(e) => { if (!confirm(`解除 ${editing.name} 的手機綁定？舊手機將無法再打卡。`)) e.preventDefault(); }}>
+				<form method="POST" action="?/transfer" use:enhance={submit} onsubmit={(e) => { if (!confirm(transferConfirm(editing))) e.preventDefault(); }}>
 					<input type="hidden" name="id" value={editing.id} />
-					<button class="btn btn-danger w-full" disabled={busy}><Unlink class="size-4" /> 解除綁定（換手機）</button>
+					<button class="btn btn-danger w-full" disabled={busy}><ArrowRightLeft class="size-4" /> 轉移帳號（換手機）</button>
 				</form>
-				<p class="mt-2 text-xs leading-relaxed text-muted">解除後，請他用新手機打開網站並登入，就會自動綁定新手機。</p>
+				<p class="mt-2 text-xs leading-relaxed text-muted">轉移後舊手機立刻不能打卡、也不能再登入這個帳號；請他用新手機登入同一組帳號密碼，打卡紀錄、班表、薪資都會跟著過去。</p>
 			{/if}
 		</section>
 
