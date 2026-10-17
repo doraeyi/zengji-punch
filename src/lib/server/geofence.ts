@@ -2,25 +2,30 @@ import { eq } from 'drizzle-orm';
 import { db, settings } from './db';
 import { distanceMeters, insideFence, isValidPoint, fmtDistance, type Geofence } from '#lib/geo.js';
 
+/** 曾記麻辣燙店面的位置（固定，不用在後台設定） */
+export const STORE = { lat: 25.1477191, lng: 121.3990287 };
+
+/** 打卡範圍一律開著，老闆只調半徑 */
 const KEY = 'geofence';
-const DEFAULT: Geofence = { enabled: false, lat: 0, lng: 0, radius: 150 };
+const DEFAULT_RADIUS = 150;
+export const RADIUS_MIN = 30;
+export const RADIUS_MAX = 2000;
 
 export async function getGeofence(): Promise<Geofence> {
 	const [row] = await db.select().from(settings).where(eq(settings.key, KEY));
-	const value = (row?.value ?? {}) as Partial<Geofence>;
-	return { ...DEFAULT, ...value };
+	const radius = Number((row?.value as { radius?: number } | undefined)?.radius) || DEFAULT_RADIUS;
+	return { enabled: true, ...STORE, radius };
 }
 
-export async function saveGeofence(fence: Geofence) {
-	await db
-		.insert(settings)
-		.values({ key: KEY, value: fence })
-		.onDuplicateKeyUpdate({ set: { value: fence } });
+export async function saveRadius(radius: number) {
+	const value = { radius: Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, Math.round(radius))) };
+	await db.insert(settings).values({ key: KEY, value }).onDuplicateKeyUpdate({ set: { value } });
+	return value.radius;
 }
 
-/** 打卡範圍有沒有作用在這個人身上（只管員工，且店家位置要設定好） */
+/** 打卡範圍有沒有作用在這個人身上：只管員工，老闆 / 老闆娘在哪都能打卡 */
 export function fenceApplies(fence: Geofence, role: 'owner' | 'staff') {
-	return fence.enabled && role === 'staff' && isValidPoint(fence) && !(fence.lat === 0 && fence.lng === 0);
+	return fence.enabled && role === 'staff' && isValidPoint(fence);
 }
 
 export type FenceCheck = { ok: true; distance: number | null } | { ok: false; message: string };

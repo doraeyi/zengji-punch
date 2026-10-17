@@ -4,10 +4,8 @@
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import Check from '@lucide/svelte/icons/check';
 	import Bell from '@lucide/svelte/icons/bell';
-	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import AlarmClock from '@lucide/svelte/icons/alarm-clock';
 	import MapPin from '@lucide/svelte/icons/map-pin';
-	import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import FileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
 	import Download from '@lucide/svelte/icons/download';
@@ -39,33 +37,10 @@
 	const FEED_ICON = { punch: Fingerprint, shift: CalendarDays, leave: Plane, payout: Banknote, staff: Users, remind: AlarmClock } as Record<string, typeof Bell>;
 	const ago = (d: Date) => (localDay(d) === localDay() ? fmtTime(d) : `${fmtDay(localDay(d), false)} ${fmtTime(d)}`);
 
-	// 打卡範圍
+	// 打卡範圍：店家位置固定，只選半徑
 	const RADII = [50, 100, 150, 200, 300, 500];
-	// 表單草稿：只用載入當下的設定當初始值
-	const savedFence = untrack(() => data.fence);
-	let fenceOn = $state(savedFence.enabled);
-	let fenceRadius = $state(savedFence.radius);
-	let fenceCoords = $state(savedFence.lat || savedFence.lng ? `${savedFence.lat.toFixed(6)}, ${savedFence.lng.toFixed(6)}` : '');
-	let locating = $state(false);
-	let locateMsg = $state('');
-
-	function useHere() {
-		if (!('geolocation' in navigator)) return (locateMsg = '這個瀏覽器不能定位');
-		locating = true;
-		locateMsg = '';
-		navigator.geolocation.getCurrentPosition(
-			({ coords }) => {
-				locating = false;
-				fenceCoords = `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`;
-				locateMsg = `已抓到目前位置（誤差約 ${Math.round(coords.accuracy)} 公尺），記得按儲存`;
-			},
-			(err) => {
-				locating = false;
-				locateMsg = err.code === err.PERMISSION_DENIED ? '沒有定位權限，請允許瀏覽器使用位置' : '抓不到位置，請到窗邊或室外再試一次';
-			},
-			{ enableHighAccuracy: true, timeout: 20_000 }
-		);
-	}
+	let fenceRadius = $state(untrack(() => data.fence.radius));
+	const mapUrl = $derived(`https://www.google.com/maps?q=${data.fence.lat},${data.fence.lng}`);
 
 	// 匯出區間（預設本月）
 	const thisMonth = localDay().slice(0, 7);
@@ -137,55 +112,28 @@
 	</a>
 </section>
 
-<!-- 打卡範圍 -->
-<form method="POST" action="?/saveFence" class="card mt-3 p-4" use:enhance={submit}>
+<!-- 打卡範圍（店家位置固定，只調半徑） -->
+<form method="POST" action="?/saveRadius" class="card mt-3 p-4" use:enhance={submit}>
 	<div class="flex items-center gap-3">
-		<span class="grid size-11 shrink-0 place-items-center rounded-2xl {fenceOn ? 'bg-chili text-white' : 'bg-paper-2 text-muted'}"><MapPin class="size-5" /></span>
+		<span class="grid size-11 shrink-0 place-items-center rounded-2xl bg-chili text-white"><MapPin class="size-5" /></span>
 		<div class="min-w-0 flex-1">
 			<p class="font-bold">打卡範圍</p>
-			<p class="text-sm text-muted">{fenceOn ? `員工要在店家 ${fenceRadius} 公尺內才能打卡` : '關閉中：任何地方都能打卡'}</p>
+			<p class="text-sm text-muted">員工要在店家 <span class="tabular font-bold text-ink">{fenceRadius}</span> 公尺內才能打卡</p>
 		</div>
-		<label class="relative inline-flex shrink-0 cursor-pointer items-center">
-			<input type="checkbox" name="enabled" bind:checked={fenceOn} class="peer sr-only" />
-			<span class="h-7 w-12 rounded-full bg-line transition peer-checked:bg-chili"></span>
-			<span class="absolute left-1 size-5 rounded-full bg-white shadow transition peer-checked:translate-x-5"></span>
-			<span class="sr-only">開啟打卡範圍</span>
-		</label>
 	</div>
-
-	{#if fenceOn}
-		<div class="mt-4 space-y-3">
-			<div>
-				<span class="field-label">店家位置</span>
-				<button type="button" class="btn btn-ghost w-full" disabled={locating} onclick={useHere}>
-					{#if locating}<LoaderCircle class="size-4 animate-spin" />{:else}<LocateFixed class="size-4 text-chili" />{/if}
-					在店裡按這裡：用我現在的位置
-				</button>
-				{#if locateMsg}<p class="mt-1.5 text-xs text-ink-2">{locateMsg}</p>{/if}
-				<input name="coords" class="field tabular mt-2 text-sm" placeholder="或貼上 Google 地圖座標，例如 25.033964, 121.564468" bind:value={fenceCoords} />
-				{#if fenceCoords}
-					<a class="mt-1.5 inline-flex items-center gap-1 text-xs text-muted underline underline-offset-2" href="https://www.google.com/maps?q={encodeURIComponent(fenceCoords)}" target="_blank" rel="noreferrer">
-						在 Google 地圖確認位置 <ExternalLink class="size-3" />
-					</a>
-				{/if}
-			</div>
-			<div>
-				<span class="field-label">範圍半徑</span>
-				<input type="hidden" name="radius" value={fenceRadius} />
-				<div class="grid grid-cols-6 gap-1 rounded-2xl bg-paper-2 p-1">
-					{#each RADII as r (r)}
-						<button type="button" class="tabular rounded-xl py-2 text-sm font-bold {fenceRadius === r ? 'bg-card text-ink shadow-sm' : 'text-muted'}" onclick={() => (fenceRadius = r)}>{r}</button>
-					{/each}
-				</div>
-				<p class="mt-1.5 text-xs text-muted">單位：公尺。室內 GPS 常有 20–50 公尺誤差，建議 100–150。</p>
-			</div>
-		</div>
-	{:else}
-		<input type="hidden" name="coords" value={fenceCoords} />
-		<input type="hidden" name="radius" value={fenceRadius} />
-	{/if}
-	<button class="btn btn-primary mt-4 w-full" disabled={busy}>儲存打卡範圍</button>
-	<p class="mt-2 text-xs text-muted">只限制員工；老闆 / 老闆娘在哪裡都能打卡。補登打卡不受影響。</p>
+	<input type="hidden" name="radius" value={fenceRadius} />
+	<div class="mt-3 grid grid-cols-6 gap-1 rounded-2xl bg-paper-2 p-1">
+		{#each RADII as r (r)}
+			<button type="button" class="tabular rounded-xl py-2 text-sm font-bold {fenceRadius === r ? 'bg-card text-ink shadow-sm' : 'text-muted'}" onclick={() => (fenceRadius = r)}>{r}</button>
+		{/each}
+	</div>
+	<p class="mt-1.5 text-xs text-muted">單位：公尺。室內 GPS 常有 20–50 公尺誤差，建議 100–150。老闆 / 老闆娘不受限制。</p>
+	<div class="mt-3 flex items-center gap-2">
+		<a class="inline-flex min-w-0 flex-1 items-center gap-1 text-xs text-muted underline underline-offset-2" href={mapUrl} target="_blank" rel="noreferrer">
+			店家位置 {data.fence.lat}, {data.fence.lng} <ExternalLink class="size-3 shrink-0" />
+		</a>
+		<button class="btn btn-primary shrink-0 px-4 py-2 text-sm" disabled={busy || fenceRadius === data.fence.radius}>儲存</button>
+	</div>
 </form>
 
 <!-- 國定假日雙倍薪 -->

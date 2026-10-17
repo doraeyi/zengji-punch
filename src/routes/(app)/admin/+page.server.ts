@@ -5,9 +5,8 @@ import { db, employees, notifications } from '#lib/server/db/index.js';
 import { requireOwner } from '#lib/server/guard.js';
 import { notify } from '#lib/server/notify.js';
 import { pushConfigured } from '#lib/server/push.js';
-import { getGeofence, saveGeofence } from '#lib/server/geofence.js';
+import { getGeofence, saveRadius } from '#lib/server/geofence.js';
 import { holidayDoublePay, setHolidayDoublePay } from '#lib/server/holidays.js';
-import { isValidPoint } from '#lib/geo.js';
 import { str } from '#lib/server/validate.js';
 
 // 管理分頁（老闆）：通知中心、匯出 Excel、打卡範圍、國定假日雙倍薪、推播
@@ -60,20 +59,13 @@ export const actions: Actions = {
 		return { scope: 'pay', ok: on ? '已開啟：國定假日上班算雙倍薪' : '已關閉：國定假日照一般時薪算' };
 	},
 
-	saveFence: async ({ request, locals }) => {
+	/** 打卡範圍的半徑（店家位置固定，範圍一律開著） */
+	saveRadius: async ({ request, locals }) => {
 		const me = requireOwner(locals);
-		const form = await request.formData();
-		const enabled = form.get('enabled') === 'on';
-		// 座標可以是「用我現在的位置」帶進來的，也可以貼 Google 地圖的「25.0330, 121.5654」
-		const [lat, lng] = str(form, 'coords').split(/[,，\s]+/).filter(Boolean).map(Number);
-		const radius = Math.min(2000, Math.max(30, Math.round(Number(str(form, 'radius')) || 150)));
-		const point = { lat, lng };
-		if (enabled && !isValidPoint(point)) {
-			return fail(400, { scope: 'fence', message: '店家座標不正確，請在店裡按「用我現在的位置」，或貼上 Google 地圖的座標' });
-		}
-		const current = await getGeofence();
-		await saveGeofence({ enabled, radius, ...(isValidPoint(point) ? point : { lat: current.lat, lng: current.lng }) });
-		await notify('staff', null, enabled ? `打卡範圍已開啟（店家 ${radius} 公尺內）` : '打卡範圍已關閉', { actorId: me.id, title: '📍 打卡範圍' });
-		return { scope: 'fence', ok: enabled ? `已開啟：員工要在店家 ${radius} 公尺內才能打卡` : '已關閉打卡範圍，任何地方都能打卡' };
+		const wanted = Number(str(await request.formData(), 'radius'));
+		if (!Number.isFinite(wanted) || wanted <= 0) return fail(400, { scope: 'fence', message: '請選擇範圍' });
+		const radius = await saveRadius(wanted);
+		await notify('staff', null, `打卡範圍改成店家 ${radius} 公尺內`, { actorId: me.id, title: '📍 打卡範圍' });
+		return { scope: 'fence', ok: `已儲存：員工要在店家 ${radius} 公尺內才能打卡` };
 	}
 };
