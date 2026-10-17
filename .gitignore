@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 
 # 資料庫備份（含個資，不要上傳）
 /backups
+
+# 介紹影片（檔案大，不放 GitHub）
+/intro-video
