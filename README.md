@@ -1,23 +1,106 @@
+<div align="center">
+
+<img src="static/icon-192.png" width="96" alt="曾記打卡" />
+
 # 曾記麻辣燙｜員工打卡系統
 
-手機優先的員工打卡 Web App。員工第一次登入後手機就被記住，之後打開網站按「打卡」就完成，老闆 / 老闆娘的手機會立刻收到推播通知，員工自己也會收到收據。
+**手機優先的員工打卡 Web App：一鍵打卡、排班、算薪、推播通知**
 
-- **員工**：一鍵打卡（自動判斷上班 / 下班）、看全店月曆班表、在月曆上看自己的排班 vs 實際打卡與每天賺多少、選日期區間查薪水與是否已領、改密碼。**看不到別人的打卡與薪水。**
-- **老闆 / 老闆娘**：看得到所有人；在月曆上排班、改班、登記請假、設定固定班（自動排進月曆）；設定時薪；一鍵發放薪資（金額自動算好）；通知中心（打卡、排班異動、請假、發薪）；匯出 Excel；管理員工與手機綁定。
+![SvelteKit](https://img.shields.io/badge/SvelteKit-3-FF3E00?style=flat-square&logo=svelte&logoColor=white)
+![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?style=flat-square&logo=svelte&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-Drizzle-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![Web Push](https://img.shields.io/badge/Web_Push-VAPID-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-hkg1-000000?style=flat-square&logo=vercel&logoColor=white)
 
-## 技術選擇
+</div>
+
+---
+
+## 📖 簡介
+
+員工第一次登入後手機就被記住，之後打開網站按「打卡」就完成，老闆 / 老闆娘的手機會立刻收到推播通知，員工自己也會收到收據。打卡有地理圍欄、班表會自動排、薪資照時薪與國定假日自動算好，月底一鍵發薪、匯出 Excel。
+
+## ✨ 功能特色
+
+| 角色 | 能做什麼 |
+| --- | --- |
+| 👷 員工 | 一鍵打卡（自動判斷上班 / 下班）、看全店月曆班表、看自己的排班 vs 實際打卡與每天賺多少、選區間查薪水與是否已領、改密碼。**看不到別人的打卡與薪水** |
+| 👔 老闆 / 老闆娘 | 看得到所有人；排班、改班、請假、固定班（自動排進月曆）；設定時薪；一鍵發薪；通知中心；匯出 Excel；管理員工與手機綁定 |
+| 🗓️ 排班權限（組長） | 可排 / 改員工的班、登記請假，每次異動老闆都會收到通知 |
+
+亮點：
+
+- 📍 **打卡範圍**：員工要在店家附近才能打卡，伺服器端再驗證一次
+- 📱 **一人一機**：員工帳號綁定單一手機，防代打卡；換手機由老闆轉移
+- ⏰ **自動提醒**：忘記上班卡、半夜沒打下班卡
+- 🇹🇼 **國定假日 ×2**：節日資料來自人事行政總處行事曆
+- 📊 **Excel 匯出**：薪資總表、每日明細、發放紀錄
+
+## 🏗️ 系統架構
+
+```mermaid
+flowchart LR
+    Phone["員工 / 老闆手機<br/>PWA"] -- "表單 actions<br/>httpOnly cookie" --> Kit["SvelteKit 3<br/>adapter-node / vercel"]
+    Kit -- "Drizzle ORM" --> DB[("MySQL")]
+    Kit -- "Web Push (VAPID)" --> PushSvc["Google / Apple<br/>推播服務"]
+    PushSvc -.推播.-> Phone
+    Cron["計時器 或<br/>cron-job.org"] -- "/api/cron/reminders" --> Kit
+    Kit -- "節日資料（每週）" --> Cal["TaiwanCalendar<br/>via jsDelivr"]
+```
+
+## 🧰 技術棧
 
 | 項目 | 選擇 | 理由 |
 | --- | --- | --- |
-| 框架 | **SvelteKit 3 + Svelte 5 + TypeScript** | 前後端同一個專案：頁面用 Svelte，寫資料庫、發推播都在 SvelteKit 的 server 端（`+page.server.ts` 的 form actions），金鑰不會進到瀏覽器。表單在沒有 JS 的情況下也能送出，手機網路不穩時比較耐用。 |
-| 樣式 | **Tailwind CSS 4** | 設計 token（紅湯色、宣紙底、墨色）集中寫在 `src/routes/layout.css` 的 `@theme`，改色只要改一個地方。 |
-| 資料庫 | **MySQL（liam.name404.com:13306）+ Drizzle ORM** | `liam.name404.com` 是自架主機（nginx + phpMyAdmin + 對外 MySQL 13306）。Drizzle 有型別安全的查詢，而且能用 `npm run db:push` 直接建表。 |
-| 推播 | **標準 Web Push（VAPID）+ PWA** | 不用 LINE、也不用 Firebase 帳號：金鑰自己產生，免費、沒有則數限制。Android / 電腦直接收；iPhone 加入主畫面後也能收（iOS 16.4 以上）。Firebase 網頁版推播底層用的也是同一套機制。 |
-| 部署 | `@sveltejs/adapter-node` | 產出一般的 Node 伺服器，可以直接跑在同一台主機上，放在 nginx 後面。 |
+| 框架 | **SvelteKit 3 + Svelte 5 + TypeScript** | 前後端同一個專案：頁面用 Svelte，寫資料庫、發推播都在 server 端（form actions），金鑰不會進到瀏覽器。表單沒有 JS 也能送出，手機網路不穩時比較耐用 |
+| 樣式 | **Tailwind CSS 4** | 設計 token（紅湯色、宣紙底、墨色）集中在 `src/routes/layout.css` 的 `@theme` |
+| 資料庫 | **MySQL + Drizzle ORM** | 自架主機（nginx + phpMyAdmin + 對外 MySQL 13306）；型別安全查詢，`npm run db:push` 直接建表 |
+| 推播 | **標準 Web Push（VAPID）+ PWA** | 不用 LINE、不用 Firebase：金鑰自己產生，免費、無則數限制；iPhone 加入主畫面後也能收（iOS 16.4+） |
+| 匯出 | **ExcelJS** | 產生多工作表的 `.xlsx` |
+| 部署 | `adapter-node` / `adapter-vercel` | 自動判斷：Vercel 上建置用 adapter-vercel（香港 hkg1），自架主機用 adapter-node |
 
 需要 **Node.js 22.17 以上**（SvelteKit 3 的要求）。
 
-## 快速開始
+## 📂 專案結構
+
+```text
+src/
+├─ env.ts                         環境變數宣告
+├─ hooks.server.ts                讀 cookie → 認出是哪支手機 / 哪位員工
+├─ lib/
+│  ├─ time.ts                     台灣時區的日期時間工具
+│  ├─ components/                 共用元件（時鐘、打卡完成卡、底部彈出視窗…）
+│  └─ server/                     只在伺服器執行
+│     ├─ db/schema.ts             資料表定義
+│     ├─ auth.ts                  密碼雜湊、裝置綁定、登入限流
+│     ├─ punch.ts                 打卡邏輯
+│     ├─ attendance.ts            出勤與薪資計算（配對上下班、遲到、缺卡、每日金額、是否已領）
+│     ├─ push.ts                  Web Push 發送（失效的訂閱自動清掉）
+│     ├─ notify.ts                通知分派：記到通知中心＋推給老闆／當事員工
+│     ├─ reminders.ts             每分鐘檢查：忘記上班卡、半夜沒下班卡（自己主機用計時器，Vercel 用 /api/cron/reminders）
+│     ├─ templates.ts             固定班自動排進月曆（只往後補、手動改過的不蓋）
+│     ├─ geofence.ts              打卡範圍設定與伺服器端距離檢查
+│     └─ holidays.ts              台灣節日（人事行政總處行事曆）與國定假日雙倍薪
+└─ routes/
+   ├─ +page.svelte                首頁：打卡 / 登入
+   ├─ login/  setup/              登入、第一次建立老闆帳號
+   ├─ (app)/schedule              月曆班表（排班＋實際打卡＋每日薪資）
+   ├─ (app)/pay                   薪資（區間查詢、發放）
+   ├─ (app)/account               我的帳號、改密碼
+   ├─ (app)/staff                 員工（老闆）：手機綁定與轉移帳號、員工資料、時薪、固定班
+   ├─ (app)/admin                 管理（老闆）：通知中心、匯出、打卡範圍、雙倍薪、推播
+   ├─ (app)/admin/export          匯出 Excel
+   ├─ api/push                    開啟 / 關閉推播、送測試通知
+   └─ api/cron/reminders          給外部排程呼叫的提醒檢查（要帶 CRON_SECRET）
+static/
+├─ sw.js                          Service Worker：收推播、點通知開頁面
+├─ manifest.webmanifest           PWA 設定（加入主畫面用）
+└─ icon-*.png                     App 圖示
+```
+
+## 🚀 快速開始
 
 ```bash
 npm install
@@ -38,7 +121,7 @@ npm run dev
 
 > 用手機測試：`npm run dev -- --host` 後，手機連同一個 Wi-Fi，打開 `http://<電腦IP>:5173`。
 
-## 環境變數
+## ⚙️ 環境變數
 
 | 變數 | 必填 | 說明 |
 | --- | --- | --- |
@@ -46,10 +129,11 @@ npm run dev
 | `VAPID_PUBLIC_KEY` | | 推播公鑰（會送到瀏覽器）。沒填就不推播，打卡照常記錄。 |
 | `VAPID_PRIVATE_KEY` | | 推播私鑰，只放伺服器 |
 | `VAPID_SUBJECT` | | `mailto:你的email`，推播服務（Google / Apple）需要聯絡方式 |
+| `CRON_SECRET` | | 部署在 Vercel 時，外部排程呼叫 `/api/cron/reminders` 用的鑰匙 |
 
 環境變數在 `src/env.ts` 用 SvelteKit 3 的 `defineEnvVars` 宣告，程式裡從 `$app/env/private` 取用，**只存在伺服器端**。
 
-## 資料庫設定（liam.name404.com）
+## 🗄️ 資料庫設定
 
 建議另外開一個資料庫和專用帳號，不要跟其他專案共用 root。用 phpMyAdmin（`https://liam.name404.com/phpmyadmin/`）或 SSH 進主機執行：
 
@@ -79,7 +163,7 @@ FLUSH PRIVILEGES;
 
 時間一律以 UTC 存進資料庫（連線設定 `timezone: 'Z'`），畫面上統一換算成台灣時間。之後改了 `schema.ts` 再跑一次 `npm run db:push` 即可。
 
-## 手機推播通知設定
+## 🔔 手機推播通知設定
 
 用的是瀏覽器內建的 **Web Push**（不用 LINE、不用 Firebase）。打卡、排班、發薪時，伺服器直接推到大家的手機。
 
@@ -118,7 +202,7 @@ npx web-push generate-vapid-keys
 
 > 推播一定要 **HTTPS**（本機 `localhost` 開發除外）。手機關機或沒網路時，推播服務會保留 24 小時，開機後補送。
 
-## 裝置綁定與換手機流程
+## 📱 裝置綁定與換手機流程
 
 - 員工第一次在手機上登入，系統會發一組隨機 token 存在 httpOnly cookie（資料庫只存它的 SHA-256），這支手機就綁定了。之後打開網站直接按「打卡」即可，不必再登入。
 - cookie 每次造訪都會自動續期（瀏覽器上限約 400 天），正常使用下不會過期。
@@ -147,7 +231,7 @@ npx web-push generate-vapid-keys
 
 > 提醒員工：用手機的**一般瀏覽器**（Safari / Chrome）打開並「加入主畫面」，不要用 LINE 內建瀏覽器（收不到通知，綁定也可能不穩）。清除瀏覽器資料或用無痕模式會讓綁定消失，這時一樣找老闆解除綁定。
 
-## 打卡、排班與薪資規則
+## 📏 打卡、排班與薪資規則
 
 **打卡**
 - **每天以「最早一筆 = 上班卡、最晚一筆 = 下班卡」計算**，中間不小心多按的都不影響（月曆點開那天會列出來，但不算錢）。
@@ -203,7 +287,7 @@ npx web-push generate-vapid-keys
 **匯出 Excel**（「管理」→ 匯出 Excel）
 - 選日期區間下載 `.xlsx`，內含三個工作表：薪資總表（每人工時、應領、已領、未領、遲到、缺卡、請假）、每日明細（排班、上下班卡、計薪時數、金額、狀態）、發放紀錄。
 
-## 部署到 Vercel
+## 🚢 部署到 Vercel
 
 專案會自動判斷：在 Vercel 上建置時用 `@sveltejs/adapter-vercel`（函式放在**香港 hkg1**，離台灣的資料庫最近），在自己主機上就用 adapter-node，不用改程式。
 
@@ -219,7 +303,7 @@ npx web-push generate-vapid-keys
 
 > 每次 push 到 GitHub 的 `main`，Vercel 就會自動重新部署。
 
-## 部署（adapter-node）
+## 🚢 部署到自架主機（adapter-node）
 
 ```bash
 npm run build
@@ -243,40 +327,3 @@ location / {
 必須使用 **HTTPS**（綁定用的 cookie 在正式環境需要 secure，推播與 Service Worker 也只能在 HTTPS 下運作）。
 
 > adapter-node 預設把請求當成 `https`，再用它比對表單的 Origin（CSRF 防護）。所以直接用 `http://localhost` 連 `node build` 時，登入會回 403，這是正常的。本機測試請用 `npm run dev`；正式環境放在 HTTPS 的 nginx 後面，並設好上面的 `PROTOCOL_HEADER` / `HOST_HEADER`。
-
-## 專案結構
-
-```
-src/
-├─ env.ts                         環境變數宣告
-├─ hooks.server.ts                讀 cookie → 認出是哪支手機 / 哪位員工
-├─ lib/
-│  ├─ time.ts                     台灣時區的日期時間工具
-│  ├─ components/                 共用元件（時鐘、打卡完成卡、底部彈出視窗…）
-│  └─ server/                     只在伺服器執行
-│     ├─ db/schema.ts             資料表定義
-│     ├─ auth.ts                  密碼雜湊、裝置綁定、登入限流
-│     ├─ punch.ts                 打卡邏輯
-│     ├─ attendance.ts            出勤與薪資計算（配對上下班、遲到、缺卡、每日金額、是否已領）
-│     ├─ push.ts                  Web Push 發送（失效的訂閱自動清掉）
-│     ├─ notify.ts                通知分派：記到通知中心＋推給老闆／當事員工
-│     ├─ reminders.ts             每分鐘檢查：忘記上班卡、半夜沒下班卡（自己主機用計時器，Vercel 用 /api/cron/reminders）
-│     ├─ templates.ts             固定班自動排進月曆（只往後補、手動改過的不蓋）
-│     ├─ geofence.ts              打卡範圍設定與伺服器端距離檢查
-│     └─ holidays.ts              台灣節日（人事行政總處行事曆）與國定假日雙倍薪
-└─ routes/
-   ├─ +page.svelte                首頁：打卡 / 登入
-   ├─ login/  setup/              登入、第一次建立老闆帳號
-   ├─ (app)/schedule              月曆班表（排班＋實際打卡＋每日薪資）
-   ├─ (app)/pay                   薪資（區間查詢、發放）
-   ├─ (app)/account               我的帳號、改密碼
-   ├─ (app)/staff                 員工（老闆）：手機綁定與轉移帳號、員工資料、時薪、固定班
-   ├─ (app)/admin                 管理（老闆）：通知中心、匯出、打卡範圍、雙倍薪、推播
-   ├─ (app)/admin/export          匯出 Excel
-   ├─ api/push                    開啟 / 關閉推播、送測試通知
-   └─ api/cron/reminders          給外部排程呼叫的提醒檢查（要帶 CRON_SECRET）
-static/
-├─ sw.js                          Service Worker：收推播、點通知開頁面
-├─ manifest.webmanifest           PWA 設定（加入主畫面用）
-└─ icon-*.png                     App 圖示
-```
