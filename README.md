@@ -125,7 +125,7 @@ npm run dev
 
 | 變數 | 必填 | 說明 |
 | --- | --- | --- |
-| `DATABASE_URL` | ✅ | `mysql://帳號:密碼@liam.name404.com:13306/zengji_punch` |
+| `DATABASE_URL` | ✅ | `mysql://帳號:密碼@kaikaizhen.myasustor.com:13306/zengji_punch`（**不要用 liam.name404.com**，見下方說明） |
 | `VAPID_PUBLIC_KEY` | | 推播公鑰（會送到瀏覽器）。沒填就不推播，打卡照常記錄。 |
 | `VAPID_PRIVATE_KEY` | | 推播私鑰，只放伺服器 |
 | `VAPID_SUBJECT` | | `mailto:你的email`，推播服務（Google / Apple）需要聯絡方式 |
@@ -299,7 +299,9 @@ npx web-push generate-vapid-keys
    - 免費做法：到 [cron-job.org](https://cron-job.org) 建一個工作，每 1 分鐘 `GET https://你的網域/api/cron/reminders`，Header 加 `Authorization: Bearer <CRON_SECRET>`（或網址後面加 `?key=<CRON_SECRET>`）。
    - Vercel Pro 方案也可以用內建 Cron；免費（Hobby）方案的 Cron 一天只能跑一次，不夠用。
    - 沒設排程的話，打卡、推播、薪資都照常，只是不會有自動提醒。
-5. 資料庫要讓 Vercel 連得到：目前用 `liam.name404.com:13306` 對外的 MySQL，Vercel 的機器 IP 不固定，所以防火牆不能只開特定 IP。
+5. 資料庫要讓 Vercel 連得到：MySQL 對外是 port 13306，Vercel 的機器 IP 不固定，所以防火牆不能只開特定 IP。
+   - **連線位址要用 `kaikaizhen.myasustor.com:13306`，不能用 `liam.name404.com`**：`liam.name404.com` 走 Cloudflare 代理（橘色雲朵），Cloudflare 只轉送網頁流量，MySQL 的 13306 過不去，網站會整個 500。
+   - 以後如果換了網域或 DNS，先在電腦上確認 `13306` 連得到再改 `DATABASE_URL`。
 
 > 每次 push 到 GitHub 的 `main`，Vercel 就會自動重新部署。
 
