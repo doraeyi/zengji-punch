@@ -39,17 +39,36 @@ function probe({ host, port }: Host): Promise<boolean> {
 	});
 }
 
-/** 同時測所有主機，照優先順序選第一個能連的（主要的能連就一定選主要的） */
+/** 備用主機已經連上時，最多再等主要主機這麼久（主要被擋住時不會回應，不能等滿 PROBE_TIMEOUT_MS） */
+const PRIMARY_GRACE_MS = 300;
+
+/**
+ * 同時測所有主機，照優先順序選能連的。
+ * 優先的還沒回應、但後面的已經連上時，只再等 PRIMARY_GRACE_MS，就先用已連上的。
+ */
 async function pick(hosts: Host[]): Promise<number> {
 	if (hosts.length === 1) return 0;
 	return new Promise((resolve) => {
 		const results: (boolean | undefined)[] = hosts.map(() => undefined);
+		let grace: ReturnType<typeof setTimeout> | null = null;
+		let settled = false;
+		const finish = (i: number) => {
+			if (settled) return;
+			settled = true;
+			if (grace) clearTimeout(grace);
+			resolve(i);
+		};
+		const firstOk = () => results.findIndex((r) => r === true);
 		const decide = () => {
 			for (let i = 0; i < hosts.length; i++) {
-				if (results[i] === undefined) return; // 優先的還沒有結果，再等等
-				if (results[i]) return resolve(i);
+				if (results[i] === undefined) {
+					// 優先的還沒有結果：後面有已連上的就只再等一下
+					if (firstOk() > i && !grace) grace = setTimeout(() => finish(firstOk()), PRIMARY_GRACE_MS);
+					return;
+				}
+				if (results[i]) return finish(i);
 			}
-			resolve(0); // 全部都連不上：還是用主要的，讓錯誤照常回報
+			finish(0); // 全部都連不上：還是用主要的，讓錯誤照常回報
 		};
 		hosts.forEach((h, i) =>
 			probe(h).then((ok) => {
@@ -82,19 +101,34 @@ export function createFailoverPool(url: string, fallbackHosts: string | undefine
 		return p;
 	};
 
+	let rechecking = false;
+
+	/** 用備用主機期間，在背景看主要主機恢復了沒；恢復就讓之後的查詢切回主要（不擋住目前的查詢） */
+	function recheckPrimary() {
+		if (rechecking) return;
+		rechecking = true;
+		checkedAt = Date.now();
+		probe(hosts[0])
+			.then((ok) => {
+				if (ok && current !== null && current !== 0) {
+					console.warn(`[db] 主要資料庫 ${label(hosts[0])} 恢復了，改回主要（原本 ${label(hosts[current])}）`);
+					current = 0;
+				}
+			})
+			.finally(() => (rechecking = false));
+	}
+
 	async function active(): Promise<mysql.Pool> {
-		const stale = current === null || (current !== 0 && Date.now() - checkedAt > RECHECK_MS);
-		if (stale) {
+		if (current === null) {
 			picking ??= pick(hosts).finally(() => (picking = null));
 			const next = await picking;
-			if (next !== current) {
-				if (current !== null) console.warn(`[db] 資料庫改連 ${label(hosts[next])}（原本 ${label(hosts[current])}）`);
-				else if (next !== 0) console.warn(`[db] 主要資料庫 ${label(hosts[0])} 連不上，改連 ${label(hosts[next])}`);
-			}
+			if (current === null && next !== 0) console.warn(`[db] 主要資料庫 ${label(hosts[0])} 連不上，改連 ${label(hosts[next])}`);
 			current = next;
 			checkedAt = Date.now();
+		} else if (current !== 0 && Date.now() - checkedAt > RECHECK_MS) {
+			recheckPrimary();
 		}
-		return poolFor(current!);
+		return poolFor(current);
 	}
 
 	/** 目前這台出問題：下次查詢重新選主機 */
