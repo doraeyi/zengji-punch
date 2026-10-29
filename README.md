@@ -74,6 +74,7 @@ src/
 │  ├─ components/                 共用元件（時鐘、打卡完成卡、底部彈出視窗…）
 │  └─ server/                     只在伺服器執行
 │     ├─ db/schema.ts             資料表定義
+│     ├─ db/failover.ts           資料庫自動切換（主要連不上改連備用）
 │     ├─ auth.ts                  密碼雜湊、裝置綁定、登入限流
 │     ├─ punch.ts                 打卡邏輯
 │     ├─ attendance.ts            出勤與薪資計算（配對上下班、遲到、缺卡、每日金額、是否已領）
@@ -125,7 +126,8 @@ npm run dev
 
 | 變數 | 必填 | 說明 |
 | --- | --- | --- |
-| `DATABASE_URL` | ✅ | `mysql://帳號:密碼@kaikaizhen.myasustor.com:13306/zengji_punch`（**不要用 liam.name404.com**，見下方說明） |
+| `DATABASE_URL` | ✅ | 主要資料庫：`mysql://帳號:密碼@liam.name404.com:13306/zengji_punch` |
+| `DATABASE_FALLBACK_HOSTS` | | 備用主機，主要連不上時自動改連：`kaikaizhen.myasustor.com:13306`（多個用逗號隔開，帳密沿用 `DATABASE_URL`） |
 | `VAPID_PUBLIC_KEY` | | 推播公鑰（會送到瀏覽器）。沒填就不推播，打卡照常記錄。 |
 | `VAPID_PRIVATE_KEY` | | 推播私鑰，只放伺服器 |
 | `VAPID_SUBJECT` | | `mailto:你的email`，推播服務（Google / Apple）需要聯絡方式 |
@@ -300,8 +302,11 @@ npx web-push generate-vapid-keys
    - Vercel Pro 方案也可以用內建 Cron；免費（Hobby）方案的 Cron 一天只能跑一次，不夠用。
    - 沒設排程的話，打卡、推播、薪資都照常，只是不會有自動提醒。
 5. 資料庫要讓 Vercel 連得到：MySQL 對外是 port 13306，Vercel 的機器 IP 不固定，所以防火牆不能只開特定 IP。
-   - **連線位址要用 `kaikaizhen.myasustor.com:13306`，不能用 `liam.name404.com`**：`liam.name404.com` 走 Cloudflare 代理（橘色雲朵），Cloudflare 只轉送網頁流量，MySQL 的 13306 過不去，網站會整個 500。
-   - 以後如果換了網域或 DNS，先在電腦上確認 `13306` 連得到再改 `DATABASE_URL`。
+   - **資料庫自動切換**：`liam.name404.com` 有時會被放到 Cloudflare 代理後面，Cloudflare 只轉送網頁流量，MySQL 的 13306 就過不去。所以 Vercel 上除了 `DATABASE_URL`（主要，`liam.name404.com`），也要設 `DATABASE_FALLBACK_HOSTS="kaikaizhen.myasustor.com:13306"`。
+   - 運作方式（`src/lib/server/db/failover.ts`）：伺服器啟動時同時測兩台，主要的能連就用主要的；主要的 3 秒內連不上就改用備用。用備用期間每 2 分鐘檢查一次主要的，恢復了就自動切回去。查詢時遇到「連不上」的錯誤會立刻換另一台重試；連線中途斷掉的那一筆不會重送（避免重複寫入），下一筆就會走好的那台。
+   - 切換時伺服器 log 會印 `[db] 主要資料庫 … 連不上，改連 …`，在 Vercel 的 Logs 看得到。
+   - 主要連不上時，Vercel 冷啟動後的第一個請求會慢約 3–5 秒（在測主要的連不連得上）。
+   - `pnpm db:push` 只會用 `DATABASE_URL`；主要連不上時，暫時把 `DATABASE_URL` 換成備用主機再跑。
 
 > 每次 push 到 GitHub 的 `main`，Vercel 就會自動重新部署。
 
