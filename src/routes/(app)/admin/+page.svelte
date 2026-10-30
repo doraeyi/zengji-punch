@@ -65,6 +65,40 @@
 	<p class="mb-3 animate-rise rounded-2xl bg-chili-soft px-4 py-3 text-sm font-medium text-chili-deep">{form.message}</p>
 {/if}
 
+<!-- 請假申請 -->
+{#if data.leaves.length}
+	<section class="card mb-3 overflow-hidden border-[#e0a54a]">
+		<div class="flex items-center gap-2 bg-[#fdf3e3] px-4 py-3">
+			<Plane class="size-4 text-[#a35a0c]" />
+			<h2 class="font-bold text-[#8a4b08]">請假申請</h2>
+			<span class="chip bg-[#c27a1a] text-white">{data.leaves.length} 筆待審核</span>
+		</div>
+		<ul class="divide-y divide-line/60">
+			{#each data.leaves as l (l.id)}
+				<li class="px-4 py-3">
+					<p class="flex items-center gap-2">
+						<span class="size-2.5 shrink-0 rounded-full" style:background={l.color}></span>
+						<span class="font-bold">{l.name}</span>
+						<span class="tabular text-sm text-ink-2">{fmtDay(l.day)}</span>
+					</p>
+					{#if l.reason}<p class="mt-0.5 text-sm text-muted">原因：{l.reason}</p>{/if}
+					<div class="mt-2.5 grid grid-cols-2 gap-2">
+						<form method="POST" action="/schedule?/decideLeave" use:enhance={submit}>
+							<input type="hidden" name="id" value={l.id} />
+							<input type="hidden" name="approve" value="on" />
+							<button class="btn btn-primary w-full py-2.5" disabled={busy}><Check class="size-4" /> 核准</button>
+						</form>
+						<form method="POST" action="/schedule?/decideLeave" use:enhance={submit}>
+							<input type="hidden" name="id" value={l.id} />
+							<button class="btn btn-ghost w-full py-2.5 text-chili-deep" disabled={busy}>駁回</button>
+						</form>
+					</div>
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/if}
+
 <!-- 通知 -->
 <section class="card overflow-hidden">
 	<div class="flex items-center gap-2 px-4 pt-4 pb-2">

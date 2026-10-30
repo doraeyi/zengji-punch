@@ -9,6 +9,7 @@
 	import PencilLine from '@lucide/svelte/icons/pencil-line';
 	import X from '@lucide/svelte/icons/x';
 	import Plane from '@lucide/svelte/icons/plane';
+	import Check from '@lucide/svelte/icons/check';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Sheet from '#lib/components/Sheet.svelte';
 	import { addMonths, fmtDay, fmtDuration, fmtMoney, fmtTime, hhmm, monthDays, weekdayOf } from '#lib/time.js';
@@ -32,6 +33,8 @@
 	const person = (id: number) => data.staff.find((s) => s.id === id);
 	const recordOf = (id: number, day: string) => data.records[id]?.[Number(day.slice(8)) - 1];
 	const shiftsOn = (day: string) => data.shifts.filter((s) => s.day === day);
+	/** 某人某天最新的一筆請假申請 */
+	const leaveOf = (id: number, day: string) => data.leaves.find((l) => l.employeeId === id && l.day === day);
 
 	const q = (params: { month?: string; who?: number | 'all' }) =>
 		`?month=${params.month ?? data.month}&who=${params.who ?? data.who}`;
@@ -41,6 +44,7 @@
 	type Draft = { id?: number; employeeId: number; day: string; startTime: string; endTime: string; note: string; leave: boolean };
 	let draft = $state<Draft | null>(null);
 	let punchFix = $state<{ employeeId: number; day: string } | null>(null);
+	let leaveAsk = $state<{ day: string; reason: string } | null>(null);
 	let busy = $state(false);
 
 	/** 當天要列出的人：有排班的 + 沒排班但有打卡的（只限看得到的紀錄） */
@@ -80,6 +84,7 @@
 			if (result.type === 'success') {
 				draft = null;
 				punchFix = null;
+				leaveAsk = null;
 			}
 			await update({ reset: false });
 		};
@@ -184,6 +189,8 @@
 					{@render holidayName(day)}
 					{#if shift?.leave}
 						<span class="mt-0.5 rounded bg-[#f6dfb8] px-0.5 text-center text-[10px] font-bold text-[#8a4b08]">請假</span>
+					{:else if shift && leaveOf(focus, day)?.status === 'pending'}
+						<span class="mt-0.5 rounded border border-dashed border-[#c27a1a] px-0.5 text-center text-[10px] font-bold text-[#8a4b08]">請假審核</span>
 					{:else if shift}
 						<span class="tabular mt-0.5 truncate text-[10px] text-muted">{shortTime(shift.startTime)}–{shortTime(shift.endTime)}</span>
 					{/if}
@@ -214,8 +221,9 @@
 					{#each list.slice(0, 4) as s (s.id)}
 						{@const p = person(s.employeeId)}
 						{@const done = recordOf(s.employeeId, day)?.sessions.length}
+						{@const asking = !s.leave && leaveOf(s.employeeId, day)?.status === 'pending'}
 						<span
-							class="truncate rounded-[5px] px-1 text-center text-[10px] leading-[16px] font-bold {s.leave ? 'text-muted line-through' : done ? 'text-white' : ''}"
+							class="truncate rounded-[5px] px-1 text-center text-[10px] leading-[16px] font-bold {s.leave ? 'text-muted line-through' : done ? 'text-white' : ''} {asking ? 'outline-1 outline-offset-[-1px] outline-[#c27a1a] outline-dashed' : ''}"
 							style:background={s.leave ? 'var(--color-paper-2)' : done ? p?.color : `${p?.color}1f`}
 							style:color={!s.leave && !done ? p?.color : undefined}
 						>
@@ -248,13 +256,14 @@
 
 <!-- 某一天 -->
 <Sheet
-	open={!!openDay && !draft && !punchFix}
+	open={!!openDay && !draft && !punchFix && !leaveAsk}
 	title={openDay ? `${fmtDay(openDay)}${data.holidays[openDay] ? `　${data.holidays[openDay].name}` : ''}` : ''}
 	onclose={() => (openDay = null)}
 >
 	{#if openDay}
 		<ul class="space-y-2.5">
 			{#each dayPeople as { p, shift, rec } (p.id)}
+				{@const req = leaveOf(p.id, openDay)}
 				<li class="rounded-3xl border border-line bg-paper/60 p-4">
 					<div class="flex items-center gap-2">
 						<span class="size-2.5 shrink-0 rounded-full" style:background={p.color}></span>
@@ -273,6 +282,34 @@
 						{/if}
 					</div>
 					{#if shift?.note}<p class="mt-1 text-xs text-muted">{shift.note}</p>{/if}
+
+					{#if req?.status === 'pending' && shift && !shift.leave}
+						<div class="mt-3 rounded-2xl border border-dashed border-[#e0a54a] bg-[#fdf3e3] px-3.5 py-3">
+							<p class="flex items-center gap-1.5 text-sm font-bold text-[#8a4b08]"><Plane class="size-4" /> 申請請假，等老闆審核</p>
+							{#if req.reason}<p class="mt-0.5 text-xs text-[#8a4b08]/80">原因：{req.reason}</p>{/if}
+							{#if isOwner}
+								<div class="mt-2.5 grid grid-cols-2 gap-2">
+									<form method="POST" action={act('decideLeave')} use:enhance={submit}>
+										<input type="hidden" name="id" value={req.id} />
+										<input type="hidden" name="approve" value="on" />
+										<button class="btn btn-primary w-full py-2.5" disabled={busy}><Check class="size-4" /> 核准</button>
+									</form>
+									<form method="POST" action={act('decideLeave')} use:enhance={submit}>
+										<input type="hidden" name="id" value={req.id} />
+										<button class="btn btn-ghost w-full py-2.5 text-chili-deep" disabled={busy}><X class="size-4" /> 駁回</button>
+									</form>
+								</div>
+							{:else if p.id === data.user.id}
+								<form method="POST" action={act('cancelLeave')} use:enhance={submit}>
+									<input type="hidden" name="id" value={req.id} />
+									<button class="mt-1.5 text-xs text-muted underline underline-offset-2" disabled={busy}>取消申請</button>
+								</form>
+							{/if}
+						</div>
+					{:else if p.id === data.user.id && !isOwner && shift && !shift.leave && openDay >= data.today}
+						{#if req?.status === 'rejected'}<p class="mt-2 text-xs text-chili">上次的請假申請沒有通過</p>{/if}
+						<button class="btn btn-ghost mt-3 w-full" onclick={() => (leaveAsk = { day: openDay!, reason: '' })}><Plane class="size-4" /> 我要請假</button>
+					{/if}
 
 					{#if rec}
 						{#if rec.sessions.length}
@@ -437,6 +474,23 @@
 				<input id="fix-time" name="time" type="time" class="field tabular" required />
 			</div>
 			<button class="btn btn-primary w-full" disabled={busy}>補登</button>
+		</form>
+	{/if}
+</Sheet>
+
+<!-- 員工申請請假 -->
+<Sheet open={!!leaveAsk} title="我要請假" onclose={() => (leaveAsk = null)}>
+	{#if leaveAsk}
+		<form method="POST" action={act('requestLeave')} class="space-y-4" use:enhance={submit}>
+			<input type="hidden" name="day" value={leaveAsk.day} />
+			<p class="rounded-2xl bg-paper-2 px-4 py-3 text-sm text-ink-2">
+				申請 <b>{fmtDay(leaveAsk.day)}</b> 請假，會通知老闆，核准後這天就不用打卡。
+			</p>
+			<div>
+				<label class="field-label" for="leave-reason">原因（選填）</label>
+				<input id="leave-reason" name="reason" class="field" placeholder="例如：家裡有事" bind:value={leaveAsk.reason} maxlength="100" />
+			</div>
+			<button class="btn btn-primary w-full" disabled={busy}><Plane class="size-4" /> 送出申請</button>
 		</form>
 	{/if}
 </Sheet>

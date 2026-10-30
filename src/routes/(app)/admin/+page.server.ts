@@ -8,6 +8,7 @@ import { pushConfigured } from '#lib/server/push.js';
 import { getGeofence, saveRadius } from '#lib/server/geofence.js';
 import { holidayDoublePay, setHolidayDoublePay } from '#lib/server/holidays.js';
 import { str } from '#lib/server/validate.js';
+import { pendingLeaveRequests } from '#lib/server/leave.js';
 
 // 管理分頁（老闆）：通知中心、匯出 Excel、打卡範圍、國定假日雙倍薪、推播
 
@@ -16,7 +17,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	// 先讓 layout 算完未讀數，再把通知標成已讀
 	await parent();
 
-	const [feed, [self], fence, doublePay] = await Promise.all([
+	const [feed, [self], fence, doublePay, leaves] = await Promise.all([
 		db
 			.select({
 				id: notifications.id,
@@ -31,7 +32,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 			.limit(30),
 		db.select({ seen: employees.seenNotificationId }).from(employees).where(eq(employees.id, me.id)),
 		getGeofence(),
-		holidayDoublePay()
+		holidayDoublePay(),
+		pendingLeaveRequests()
 	]);
 
 	const seen = self?.seen ?? 0;
@@ -44,7 +46,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		feed: feed.map((f) => ({ ...f, unread: f.id > seen })),
 		pushReady: pushConfigured(),
 		fence,
-		doublePay
+		doublePay,
+		leaves
 	};
 };
 

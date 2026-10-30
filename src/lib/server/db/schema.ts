@@ -104,6 +104,24 @@ export const shifts = mysqlTable(
 	(t) => [index('shifts_day_idx').on(t.day)]
 );
 
+/** 員工的請假申請：老闆核准後，那天的班會標成請假 */
+export const leaveRequests = mysqlTable(
+	'leave_requests',
+	{
+		id: int('id').autoincrement().primaryKey(),
+		employeeId: int('employee_id')
+			.notNull()
+			.references(() => employees.id),
+		day: date('day', { mode: 'string' }).notNull(),
+		reason: varchar('reason', { length: 100 }),
+		status: mysqlEnum('status', ['pending', 'approved', 'rejected']).notNull().default('pending'),
+		decidedBy: int('decided_by'),
+		decidedAt: datetime('decided_at'),
+		createdAt: datetime('created_at').notNull()
+	},
+	(t) => [index('leave_requests_day_idx').on(t.day), index('leave_requests_status_idx').on(t.status)]
+);
+
 /** 固定班：每位員工每週固定哪幾天上班，月曆可一鍵依此產生班表 */
 export const shiftTemplates = mysqlTable(
 	'shift_templates',

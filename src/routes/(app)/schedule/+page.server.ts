@@ -1,9 +1,10 @@
 import { fail } from '@sveltejs/kit';
-import { asc, between, eq } from 'drizzle-orm';
+import { and, asc, between, eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
-import { db, employees, punches, shifts } from '#lib/server/db/index.js';
+import { db, employees, leaveRequests, punches, shifts } from '#lib/server/db/index.js';
 import { attendance, summarize, type DayRecord } from '#lib/server/attendance.js';
-import { canSchedule, requireOwner, requireScheduler } from '#lib/server/guard.js';
+import { canSchedule, requireOwner, requireScheduler, requireUser } from '#lib/server/guard.js';
+import { cancelLeave, decideLeave, dropPendingLeave, leaveRequestsBetween, requestLeave } from '#lib/server/leave.js';
 import { notify } from '#lib/server/notify.js';
 import { ensureTemplateShifts } from '#lib/server/templates.js';
 import { holidaysBetween } from '#lib/server/holidays.js';
@@ -27,7 +28,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
 	// 檢視對象：'all' = 全店班表；數字 = 某一個人（員工只能看自己）
 	const whoParam = url.searchParams.get('who');
-	let who: number | 'all' = isOwner ? 'all' : me.id;
+	// 預設看全店班表；員工也可以切到「我的打卡與薪資」
+	let who: number | 'all' = 'all';
 	if (whoParam === 'all') who = 'all';
 	else if (whoParam && isOwner && staff.some((s) => s.id === Number(whoParam))) who = Number(whoParam);
 
@@ -51,8 +53,10 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	// 打卡與薪資：老闆看得到所有人，員工只看得到自己
 	const visible = isOwner ? staff.map((s) => s.id) : [me.id];
 	const records: Record<number, DayRecord[]> = {};
-	const [holidays] = await Promise.all([
+	const [holidays, leaves] = await Promise.all([
 		holidaysBetween(from, to),
+		// 請假申請：老闆看全部，員工只看自己的
+		leaveRequestsBetween(from, to, isOwner ? undefined : me.id),
 		...visible.map(async (id) => (records[id] = await attendance(id, from, to)))
 	]);
 
@@ -66,6 +70,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		records,
 		summary: focus && records[focus] ? summarize(records[focus]) : null,
 		holidays,
+		leaves,
 		/** 老闆或有排班權限的員工，月曆上會出現排班、修改、刪除的按鈕 */
 		canEdit: canSchedule(me)
 	};
@@ -111,6 +116,13 @@ export const actions: Actions = {
 		const values = { employeeId, day, startTime: `${startTime}:00`, endTime: `${endTime}:00`, note, leave, fromTemplate: false };
 		if (id) await db.update(shifts).set(values).where(eq(shifts.id, id));
 		else await db.insert(shifts).values(values);
+		// 直接登記請假時，那天還沒審的申請就算核准了
+		if (leave) {
+			await db
+				.update(leaveRequests)
+				.set({ status: 'approved', decidedBy: owner.id, decidedAt: new Date() })
+				.where(and(eq(leaveRequests.employeeId, employeeId), eq(leaveRequests.day, day), eq(leaveRequests.status, 'pending')));
+		}
 
 		const name = await nameOf(employeeId);
 		await notify(
@@ -138,6 +150,7 @@ export const actions: Actions = {
 		const denied = await assertCanTouch(owner, row.employeeId);
 		if (denied) return denied;
 		await db.delete(shifts).where(eq(shifts.id, id));
+		await dropPendingLeave(row.employeeId, [row.day]);
 		await notify('shift', row.employeeId, `${owner.name} 刪除了 ${await nameOf(row.employeeId)} ${fmtDay(row.day)} ${hhmm(row.startTime)}–${hhmm(row.endTime)} 的班`, {
 			title: '📅 班表異動',
 			actorId: owner.id,
@@ -165,6 +178,27 @@ export const actions: Actions = {
 			toEmployee: { title: '✍️ 老闆幫你補登了打卡', body: `${fmtDay(day)} ${label} ${time}`, url: '/schedule', tag: `fix-${day}` }
 		});
 		return { added: true };
+	},
+
+	/** 員工：我要請假（送給老闆審核） */
+	requestLeave: async ({ request, locals }) => {
+		const me = requireUser(locals);
+		const form = await request.formData();
+		const day = str(form, 'day');
+		if (!isDay(day)) return fail(400, { message: '日期不正確' });
+		return requestLeave(me, day, str(form, 'reason').slice(0, 100) || null);
+	},
+
+	cancelLeave: async ({ request, locals }) => {
+		const me = requireUser(locals);
+		return cancelLeave(me, Number((await request.formData()).get('id')));
+	},
+
+	/** 老闆：核准 / 駁回請假（管理分頁也送到這裡） */
+	decideLeave: async ({ request, locals }) => {
+		const owner = requireOwner(locals);
+		const form = await request.formData();
+		return decideLeave(owner, Number(form.get('id')), form.get('approve') === 'on');
 	},
 
 	deletePunch: async ({ request, locals }) => {
