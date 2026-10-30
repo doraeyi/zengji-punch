@@ -8,6 +8,9 @@ const LATE_GRACE_MIN = 5;
 
 export type PunchRow = { id: number; kind: 'in' | 'out'; at: Date; source: string; distance: number | null };
 /** 一天只有一段：最早一筆是上班卡、最晚一筆是下班卡；只有一筆時 out 為 null */
+/** 晚走加班以 30 分鐘為單位計薪 */
+const OVERTIME_STEP_MS = 30 * 60 * 1000;
+
 export type Session = { in: PunchRow | null; out: PunchRow | null; minutes: number; paidMinutes: number };
 export type DayRecord = {
 	day: string;
@@ -97,9 +100,15 @@ export async function attendance(employeeId: number, from: string, to: string): 
 			const first = list[0];
 			const last = list.length > 1 ? list.at(-1)! : null;
 			const minutes = last ? Math.floor((last.at.getTime() - first.at.getTime()) / 60000) : 0;
-			// 早到不算：從班表上班時間起算；晚走照實際下班卡算
+			// 早到不算：從班表上班時間起算
 			const start = window && first.at < window.start && !shift!.leave ? window.start : first.at;
-			const paidMinutes = last ? Math.max(0, Math.floor((last.at.getTime() - start.getTime()) / 60000)) : 0;
+			// 晚走只算滿 30 分鐘的部分：超過下班時間 29 分鐘不加錢，35 分鐘算 30 分鐘
+			let end = last?.at ?? null;
+			if (end && window && end > window.end && !shift!.leave) {
+				const overtime = Math.floor((end.getTime() - window.end.getTime()) / OVERTIME_STEP_MS) * OVERTIME_STEP_MS;
+				end = new Date(window.end.getTime() + overtime);
+			}
+			const paidMinutes = end ? Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60000)) : 0;
 			daySessions.push({ in: first, out: last, minutes, paidMinutes });
 		}
 		const extra = list.slice(1, -1);
