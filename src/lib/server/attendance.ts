@@ -8,8 +8,9 @@ const LATE_GRACE_MIN = 5;
 
 export type PunchRow = { id: number; kind: 'in' | 'out'; at: Date; source: string; distance: number | null };
 /** 一天只有一段：最早一筆是上班卡、最晚一筆是下班卡；只有一筆時 out 為 null */
-/** 晚走加班以 30 分鐘為單位計薪 */
-const OVERTIME_STEP_MS = 30 * 60 * 1000;
+/** 計薪單位：30 分鐘 */
+const PAY_STEP_MINUTES = 30;
+const OVERTIME_STEP_MS = PAY_STEP_MINUTES * 60 * 1000;
 
 export type Session = { in: PunchRow | null; out: PunchRow | null; minutes: number; paidMinutes: number };
 export type DayRecord = {
@@ -108,7 +109,9 @@ export async function attendance(employeeId: number, from: string, to: string): 
 				const overtime = Math.floor((end.getTime() - window.end.getTime()) / OVERTIME_STEP_MS) * OVERTIME_STEP_MS;
 				end = new Date(window.end.getTime() + overtime);
 			}
-			const paidMinutes = end ? Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60000)) : 0;
+			// 薪水一律以 30 分鐘為單位（時薪 200 → 每次都是 100 的倍數），不滿 30 分鐘的零頭不算
+			const rawMinutes = end ? Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60000)) : 0;
+			const paidMinutes = Math.floor(rawMinutes / PAY_STEP_MINUTES) * PAY_STEP_MINUTES;
 			daySessions.push({ in: first, out: last, minutes, paidMinutes });
 		}
 		const extra = list.slice(1, -1);
