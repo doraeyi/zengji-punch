@@ -93,11 +93,18 @@ export async function holidaysBetween(from: string, to: string): Promise<Holiday
 // ── 國定假日雙倍薪（老闆可以在後台關掉）──
 const DOUBLE_KEY = 'holidayDoublePay';
 
+// 每個頁面每個人都會問一次，記在記憶體裡一分鐘，不用每次查資料庫
+let doublePayCache: { at: number; on: boolean } | null = null;
+
 export async function holidayDoublePay(): Promise<boolean> {
+	if (doublePayCache && Date.now() - doublePayCache.at < 60_000) return doublePayCache.on;
 	const [row] = await db.select().from(settings).where(eq(settings.key, DOUBLE_KEY));
-	return row ? row.value === true : true;
+	const on = row ? row.value === true : true;
+	doublePayCache = { at: Date.now(), on };
+	return on;
 }
 
 export async function setHolidayDoublePay(on: boolean) {
 	await db.insert(settings).values({ key: DOUBLE_KEY, value: on }).onDuplicateKeyUpdate({ set: { value: on } });
+	doublePayCache = { at: Date.now(), on };
 }

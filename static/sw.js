@@ -11,15 +11,19 @@ self.addEventListener('push', (event) => {
 		data = { title: '曾記麻辣燙', body: event.data ? event.data.text() : '' };
 	}
 	const title = data.title || '曾記麻辣燙';
+	// 開著的頁面馬上更新資料（有人打卡、改班表、請假）
+	const refreshPages = self.clients
+		.matchAll({ type: 'window' })
+		.then((list) => list.forEach((client) => client.postMessage({ type: 'refresh' })));
 	event.waitUntil(
-		self.registration.showNotification(title, {
+		Promise.all([refreshPages, self.registration.showNotification(title, {
 			body: data.body || '',
 			icon: '/icon-192.png',
 			badge: '/badge-96.png',
 			tag: data.tag,
 			renotify: Boolean(data.tag),
 			data: { url: data.url || '/' }
-		})
+		})])
 	);
 });
 
