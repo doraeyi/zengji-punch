@@ -93,7 +93,7 @@
 	const STATUS_TINT: Record<string, string> = {
 		absent: 'bg-chili-soft',
 		'missing-out': 'ring-1 ring-inset ring-chili/50',
-		leave: 'bg-[#fdf3e3]'
+		leave: 'bg-honey-soft'
 	};
 </script>
 
@@ -103,7 +103,7 @@
 
 <!-- 看誰 -->
 <div class="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-	<a href={q({ who: 'all' })} class="shrink-0 rounded-full border px-3.5 py-2 text-sm font-medium {data.who === 'all' ? 'border-ink bg-ink text-white' : 'border-line bg-card text-ink-2'}">
+	<a href={q({ who: 'all' })} class="shrink-0 rounded-full border px-3.5 py-2 text-sm font-medium {data.who === 'all' ? 'border-ink bg-ink text-paper' : 'border-line bg-card text-ink-2'}">
 		全店班表
 	</a>
 	{#each isOwner ? data.staff : data.staff.filter((s) => s.id === data.user.id) as s (s.id)}
@@ -188,9 +188,9 @@
 					</span>
 					{@render holidayName(day)}
 					{#if shift?.leave}
-						<span class="mt-0.5 rounded bg-[#f6dfb8] px-0.5 text-center text-[10px] font-bold text-[#8a4b08]">請假</span>
+						<span class="mt-0.5 rounded bg-honey-tint px-0.5 text-center text-[10px] font-bold text-honey-ink">請假</span>
 					{:else if shift && leaveOf(focus, day)?.status === 'pending'}
-						<span class="mt-0.5 rounded border border-dashed border-[#c27a1a] px-0.5 text-center text-[10px] font-bold text-[#8a4b08]">請假審核</span>
+						<span class="mt-0.5 rounded border border-dashed border-honey-strong px-0.5 text-center text-[10px] font-bold text-honey-ink">請假審核</span>
 					{:else if shift}
 						<span class="tabular mt-0.5 truncate text-[10px] text-muted">{shortTime(shift.startTime)}–{shortTime(shift.endTime)}</span>
 					{/if}
@@ -223,7 +223,7 @@
 						{@const done = recordOf(s.employeeId, day)?.sessions.length}
 						{@const asking = !s.leave && leaveOf(s.employeeId, day)?.status === 'pending'}
 						<span
-							class="truncate rounded-[5px] px-1 text-center text-[10px] leading-[16px] font-bold {s.leave ? 'text-muted line-through' : done ? 'text-white' : ''} {asking ? 'outline-1 outline-offset-[-1px] outline-[#c27a1a] outline-dashed' : ''}"
+							class="truncate rounded-[5px] px-1 text-center text-[10px] leading-[16px] font-bold {s.leave ? 'text-muted line-through' : done ? 'text-white' : ''} {asking ? 'outline-1 outline-offset-[-1px] outline-honey-strong outline-dashed' : ''}"
 							style:background={s.leave ? 'var(--color-paper-2)' : done ? p?.color : `${p?.color}1f`}
 							style:color={!s.leave && !done ? p?.color : undefined}
 						>
@@ -244,7 +244,7 @@
 		<span><span class="font-medium text-chili-deep">16:02</span> 上班卡</span>
 		<span><span class="font-medium text-night">19:30</span> 下班卡</span>
 		<span class="flex items-center gap-1"><CheckCheck class="size-3 text-jade" /> 已領薪</span>
-		<span class="flex items-center gap-1"><span class="size-2.5 rounded bg-[#f6dfb8]"></span>請假</span>
+		<span class="flex items-center gap-1"><span class="size-2.5 rounded bg-honey-tint"></span>請假</span>
 	{:else}
 		{#each data.staff as s (s.id)}
 			<span class="flex items-center gap-1"><span class="size-2 rounded-full" style:background={s.color}></span>{s.name}</span>
@@ -269,7 +269,7 @@
 						<span class="size-2.5 shrink-0 rounded-full" style:background={p.color}></span>
 						<span class="font-bold">{p.name}</span>
 						{#if shift?.leave}
-							<span class="chip bg-[#f6dfb8] text-[#8a4b08]"><Plane class="size-3" /> 請假</span>
+							<span class="chip bg-honey-tint text-honey-ink"><Plane class="size-3" /> 請假</span>
 						{:else if shift}
 							<span class="tabular text-sm text-ink-2">排班 {hhmm(shift.startTime)}–{hhmm(shift.endTime)}</span>
 						{:else}
@@ -284,9 +284,9 @@
 					{#if shift?.note}<p class="mt-1 text-xs text-muted">{shift.note}</p>{/if}
 
 					{#if req?.status === 'pending' && shift && !shift.leave}
-						<div class="mt-3 rounded-2xl border border-dashed border-[#e0a54a] bg-[#fdf3e3] px-3.5 py-3">
-							<p class="flex items-center gap-1.5 text-sm font-bold text-[#8a4b08]"><Plane class="size-4" /> 申請請假，等老闆審核</p>
-							{#if req.reason}<p class="mt-0.5 text-xs text-[#8a4b08]/80">原因：{req.reason}</p>{/if}
+						<div class="mt-3 rounded-2xl border border-dashed border-honey-line bg-honey-soft px-3.5 py-3">
+							<p class="flex items-center gap-1.5 text-sm font-bold text-honey-ink"><Plane class="size-4" /> 申請請假，等老闆審核</p>
+							{#if req.reason}<p class="mt-0.5 text-xs text-honey-ink/80">原因：{req.reason}</p>{/if}
 							{#if isOwner}
 								<div class="mt-2.5 grid grid-cols-2 gap-2">
 									<form method="POST" action={act('decideLeave')} use:enhance={submit}>
@@ -346,7 +346,7 @@
 						{:else if rec.status === 'working'}
 							<p class="mt-2 text-sm text-jade">上班中，下班打卡後計算薪資</p>
 						{/if}
-						{#if rec.lateMinutes}<p class="mt-2 text-xs text-[#a35a0c]">遲到 {fmtDuration(rec.lateMinutes)}</p>{/if}
+						{#if rec.lateMinutes}<p class="mt-2 text-xs text-honey">遲到 {fmtDuration(rec.lateMinutes)}</p>{/if}
 						{#if isOwner}
 							<button class="mt-2 text-xs text-muted underline underline-offset-2" onclick={() => (punchFix = { employeeId: p.id, day: openDay! })}>補登打卡</button>
 						{/if}
@@ -430,12 +430,12 @@
 					<input id="et" name="endTime" type="time" class="field tabular" bind:value={draft.endTime} required />
 				</div>
 			</div>
-			<label class="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3.5 has-checked:border-[#e0a54a] has-checked:bg-[#fdf3e3]">
+			<label class="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3.5 has-checked:border-honey-line has-checked:bg-honey-soft">
 				<span>
-					<span class="flex items-center gap-1.5 font-bold"><Plane class="size-4 text-[#a35a0c]" /> 這天請假</span>
+					<span class="flex items-center gap-1.5 font-bold"><Plane class="size-4 text-honey" /> 這天請假</span>
 					<span class="block text-xs text-muted">請假不用打卡、不算缺勤，也不計薪</span>
 				</span>
-				<input type="checkbox" name="leave" bind:checked={draft.leave} class="size-5 accent-[#c27a1a]" />
+				<input type="checkbox" name="leave" bind:checked={draft.leave} class="size-5 accent-honey-strong" />
 			</label>
 			<div>
 				<label class="field-label" for="note">備註（選填）</label>

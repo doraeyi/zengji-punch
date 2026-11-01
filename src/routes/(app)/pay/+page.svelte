@@ -119,7 +119,7 @@
 		</div>
 	</div>
 	{#if isOwner && data.unpaid}
-		<button class="btn mt-3 w-full bg-white text-ink hover:bg-paper" onclick={openPayout}>
+		<button class="btn mt-3 w-full bg-paper text-ink hover:bg-paper-2" onclick={openPayout}>
 			<HandCoins class="size-5 text-chili" /> 發放未領的 {fmtMoney(data.unpaid.amount)}
 		</button>
 	{/if}
@@ -142,7 +142,7 @@
 			</div>
 			<div class="min-w-0 flex-1 text-sm">
 				{#if d.status === 'leave'}
-					<span class="chip bg-[#f6dfb8] text-[#8a4b08]"><Plane class="size-3" /> 請假</span>
+					<span class="chip bg-honey-tint text-honey-ink"><Plane class="size-3" /> 請假</span>
 				{:else if d.status === 'absent'}
 					<span class="text-chili">有排班但未打卡</span>
 				{:else}

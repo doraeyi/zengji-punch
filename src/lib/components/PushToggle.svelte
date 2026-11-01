@@ -43,10 +43,10 @@
 
 {#snippet iosSteps()}
 	<ol class="mt-2 space-y-1.5 text-sm text-ink-2" transition:slide>
-		<li class="flex items-center gap-2"><span class="tabular grid size-5 place-items-center rounded-full bg-ink text-[11px] text-white">1</span>用 <b>Safari</b> 打開這個網站</li>
-		<li class="flex items-center gap-2"><span class="tabular grid size-5 place-items-center rounded-full bg-ink text-[11px] text-white">2</span>點下方的分享 <Share class="size-4" /></li>
-		<li class="flex items-center gap-2"><span class="tabular grid size-5 place-items-center rounded-full bg-ink text-[11px] text-white">3</span>選「加入主畫面」<SquarePlus class="size-4" /></li>
-		<li class="flex items-center gap-2"><span class="tabular grid size-5 place-items-center rounded-full bg-ink text-[11px] text-white">4</span>從主畫面的「曾記打卡」打開，再按開啟通知</li>
+		<li class="flex items-center gap-2"><span class="tabular grid size-5 place-items-center rounded-full bg-ink text-[11px] text-paper">1</span>用 <b>Safari</b> 打開這個網站</li>
+		<li class="flex items-center gap-2"><span class="tabular grid size-5 place-items-center rounded-full bg-ink text-[11px] text-paper">2</span>點下方的分享 <Share class="size-4" /></li>
+		<li class="flex items-center gap-2"><span class="tabular grid size-5 place-items-center rounded-full bg-ink text-[11px] text-paper">3</span>選「加入主畫面」<SquarePlus class="size-4" /></li>
+		<li class="flex items-center gap-2"><span class="tabular grid size-5 place-items-center rounded-full bg-ink text-[11px] text-paper">4</span>從主畫面的「曾記打卡」打開，再按開啟通知</li>
 	</ol>
 {/snippet}
 
@@ -54,7 +54,7 @@
 	{#if status === 'off' || status === 'ios-needs-install'}
 		<div class="card animate-rise px-4 py-3" transition:slide>
 			<div class="flex items-center gap-3">
-				<span class="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#fdf0dc] text-[#b5650d]"><Bell class="size-5" /></span>
+				<span class="grid size-10 shrink-0 place-items-center rounded-2xl bg-honey-soft text-honey"><Bell class="size-5" /></span>
 				<div class="min-w-0 flex-1">
 					<p class="text-sm font-bold">開啟手機通知</p>
 					<p class="text-xs text-muted">{status === 'ios-needs-install' ? 'iPhone 要先「加入主畫面」才收得到' : what}</p>

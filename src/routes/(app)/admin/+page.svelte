@@ -67,11 +67,11 @@
 
 <!-- 請假申請 -->
 {#if data.leaves.length}
-	<section class="card mb-3 overflow-hidden border-[#e0a54a]">
-		<div class="flex items-center gap-2 bg-[#fdf3e3] px-4 py-3">
-			<Plane class="size-4 text-[#a35a0c]" />
-			<h2 class="font-bold text-[#8a4b08]">請假申請</h2>
-			<span class="chip bg-[#c27a1a] text-white">{data.leaves.length} 筆待審核</span>
+	<section class="card mb-3 overflow-hidden border-honey-line">
+		<div class="flex items-center gap-2 bg-honey-soft px-4 py-3">
+			<Plane class="size-4 text-honey" />
+			<h2 class="font-bold text-honey-ink">請假申請</h2>
+			<span class="chip bg-honey-strong text-white">{data.leaves.length} 筆待審核</span>
 		</div>
 		<ul class="divide-y divide-line/60">
 			{#each data.leaves as l (l.id)}
@@ -130,7 +130,7 @@
 <!-- 匯出 Excel -->
 <section class="card mt-3 p-4">
 	<div class="flex items-center gap-3">
-		<span class="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#e3f1e7] text-[#1d6f42]"><FileSpreadsheet class="size-5" /></span>
+		<span class="grid size-11 shrink-0 place-items-center rounded-2xl bg-jade-soft text-jade"><FileSpreadsheet class="size-5" /></span>
 		<div class="min-w-0 flex-1">
 			<p class="font-bold">匯出 Excel</p>
 			<p class="text-sm text-muted">薪資總表、每日打卡明細、發放紀錄</p>

@@ -94,7 +94,7 @@
 					</p>
 					<p class="text-[11px] text-muted">{fmtDay(localDay(p.devices[0].createdAt), false)} 綁定 · 最後使用 {lastSeen(p.devices[0].lastSeenAt)}</p>
 				{:else if p.waiting}
-					<p class="flex items-center gap-1 text-xs font-medium text-[#a35a0c]"><Hourglass class="size-3" /> 等新手機登入</p>
+					<p class="flex items-center gap-1 text-xs font-medium text-honey"><Hourglass class="size-3" /> 等新手機登入</p>
 					<p class="truncate text-[11px] text-muted">舊手機 {p.waiting.label} 已在 {lastSeen(p.waiting.at)} 停用</p>
 				{:else}
 					<p class="text-xs text-muted">尚未綁定手機</p>
@@ -125,7 +125,7 @@
 					<span class="flex items-center gap-2">
 						<span class="truncate text-lg font-bold">{p.name}</span>
 						{#if p.role === 'owner'}<span class="chip bg-chili-soft text-chili-deep">老闆</span>{/if}
-						{#if p.role === 'staff' && p.canSchedule}<span class="chip bg-[#fdf0dc] text-[#a35a0c]">可排班</span>{/if}
+						{#if p.role === 'staff' && p.canSchedule}<span class="chip bg-honey-soft text-honey">可排班</span>{/if}
 						{#if !p.active}<span class="chip bg-paper-2 text-muted">已停用</span>{/if}
 						{#if p.hourlyWage}<span class="tabular ml-auto text-sm text-muted">時薪 ${p.hourlyWage}</span>{/if}
 					</span>
@@ -135,7 +135,7 @@
 							{p.devices[0].label}{#if p.devices.length > 1}<span class="text-muted">　+{p.devices.length - 1}</span>{/if}
 						</span>
 					{:else}
-						<span class="flex items-center gap-1 text-sm text-[#a35a0c]"><Smartphone class="size-3.5" /> 尚未綁定手機</span>
+						<span class="flex items-center gap-1 text-sm text-honey"><Smartphone class="size-3.5" /> 尚未綁定手機</span>
 					{/if}
 					<span class="flex items-center gap-1 text-xs {p.pushDevices ? 'text-jade' : 'text-muted'}">
 						<Bell class="size-3" />{p.pushDevices ? `已開通知（${p.pushDevices} 台）` : '未開通知'}
@@ -206,12 +206,12 @@
 			{@render colorPicker('color', editColor, (c) => (editColor = c))}
 			{@render rolePicker(editing.role)}
 			{#if editing.role === 'staff'}
-				<label class="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3.5 has-checked:border-[#e0a54a] has-checked:bg-[#fdf3e3]">
+				<label class="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3.5 has-checked:border-honey-line has-checked:bg-honey-soft">
 					<span class="min-w-0">
-						<span class="flex items-center gap-1.5 font-bold"><CalendarClock class="size-4 text-[#a35a0c]" /> 排班權限</span>
+						<span class="flex items-center gap-1.5 font-bold"><CalendarClock class="size-4 text-honey" /> 排班權限</span>
 						<span class="block text-xs leading-relaxed text-muted">可以在月曆新增、修改、刪除班表和登記請假。看不到別人的打卡和薪水，也不能發薪、管理員工。他改的班老闆都會收到通知。</span>
 					</span>
-					<input type="checkbox" name="canSchedule" checked={editing.canSchedule} class="size-5 shrink-0 accent-[#c27a1a]" />
+					<input type="checkbox" name="canSchedule" checked={editing.canSchedule} class="size-5 shrink-0 accent-honey-strong" />
 				</label>
 			{/if}
 			<button class="btn btn-primary w-full" disabled={busy}>儲存</button>

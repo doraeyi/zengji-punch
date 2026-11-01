@@ -21,7 +21,7 @@
 </script>
 
 <div
-	class="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center"
+	class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 backdrop-blur-sm sm:items-center"
 	transition:fade={{ duration: 180 }}
 	role="dialog"
 	aria-modal="true"
@@ -31,7 +31,7 @@
 		<div
 			class="relative px-6 pt-8 pb-7 text-center text-white"
 			class:bg-chili={isIn}
-			class:bg-night={!isIn}
+			class:bg-night-deep={!isIn}
 		>
 			<div
 				class="pointer-events-none absolute -top-6 -right-4 font-serif text-[140px] leading-none font-black opacity-10 select-none"

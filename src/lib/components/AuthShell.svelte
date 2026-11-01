@@ -8,7 +8,7 @@
 
 <div class="relative min-h-dvh overflow-clip">
 	<div
-		class="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(120%_80%_at_50%_0%,#f9d9c8_0%,rgba(251,246,238,0)_70%)]"
+		class="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(120%_80%_at_50%_0%,var(--color-chili-soft)_0%,transparent_70%)]"
 	></div>
 	<main
 		class="relative mx-auto flex min-h-dvh max-w-md flex-col px-5 pt-[max(env(safe-area-inset-top),1.25rem)] pb-[max(env(safe-area-inset-bottom),1.5rem)]"

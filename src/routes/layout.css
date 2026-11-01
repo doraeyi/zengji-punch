@@ -21,6 +21,16 @@
 	--color-jade-soft: #e2f1e9;
 	--color-night: #2e3a46;
 	--color-night-soft: #e6ebf0;
+	/* 深色底配白字的下班色，深淺模式都不變 */
+	--color-night-deep: #2e3a46;
+
+	/* 請假、提醒用的琥珀色 */
+	--color-honey: #a35a0c;
+	--color-honey-ink: #8a4b08;
+	--color-honey-strong: #c27a1a;
+	--color-honey-line: #e0a54a;
+	--color-honey-tint: #f6dfb8;
+	--color-honey-soft: #fdf3e3;
 
 	--shadow-card: 0 1px 0 rgb(31 26 23 / 0.04), 0 8px 24px -12px rgb(91 52 25 / 0.18);
 
@@ -49,8 +59,41 @@
 	}
 }
 
+/* 跟著手機設定切換深色模式：只換顏色變數，畫面上的 class 不用改 */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-paper: #15110f;
+		--color-paper-2: #2a221e;
+		--color-card: #201a17;
+		--color-line: #3b312b;
+		--color-ink: #f3ece3;
+		--color-ink-2: #cfc3b6;
+		--color-muted: #9a8e82;
+
+		--color-chili: #d4492f;
+		/* 深色模式下 chili-deep 幾乎都當文字用（錯誤訊息、駁回），要調亮才看得到 */
+		--color-chili-deep: #f08a74;
+		--color-chili-soft: #3a1d17;
+		--color-pepper: #f08a3c;
+		--color-jade: #3f9a70;
+		--color-jade-soft: #1a2e25;
+		--color-night: #a9bccd;
+		--color-night-soft: #232c35;
+
+		--color-honey: #e8a24a;
+		--color-honey-ink: #f0c27a;
+		--color-honey-strong: #d18d2e;
+		--color-honey-line: #8a6224;
+		--color-honey-tint: #4a3612;
+		--color-honey-soft: #2e2210;
+
+		--shadow-card: 0 1px 0 rgb(0 0 0 / 0.2), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+	}
+}
+
 @layer base {
 	html {
+		color-scheme: light dark;
 		-webkit-tap-highlight-color: transparent;
 		text-size-adjust: 100%;
 	}
@@ -87,7 +130,7 @@
 		@apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-base font-bold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
 	}
 	.btn-primary {
-		@apply bg-chili text-white hover:bg-chili-deep;
+		@apply bg-chili text-white hover:bg-chili-deep dark:hover:bg-chili/85;
 		box-shadow: 0 10px 22px -12px rgb(143 36 22 / 0.7);
 	}
 	.btn-ghost {
@@ -101,7 +144,7 @@
 	}
 	.seal {
 		/* 印章感的店名章 */
-		@apply grid place-items-center rounded-2xl bg-chili font-serif font-black text-paper;
+		@apply grid place-items-center rounded-2xl bg-chili font-serif font-black text-[#fbf6ee];
 		box-shadow:
 			inset 0 0 0 3px rgb(251 246 238 / 0.85),
 			inset 0 0 0 5px var(--color-chili);

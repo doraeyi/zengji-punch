@@ -83,7 +83,7 @@
 	<!-- 背景：招牌放大模糊，往下淡入宣紙色 -->
 	<div class="pointer-events-none absolute inset-x-0 top-0 h-[460px] overflow-hidden" aria-hidden="true">
 		<img src={sign} alt="" class="h-full w-full scale-125 object-cover opacity-60 blur-2xl saturate-150" />
-		<div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,246,238,0.15)_0%,rgba(251,246,238,0.55)_45%,#fbf6ee_92%)]"></div>
+		<div class="absolute inset-0 bg-linear-to-b from-paper/15 via-paper/55 via-45% to-paper to-92%"></div>
 	</div>
 
 	<main
