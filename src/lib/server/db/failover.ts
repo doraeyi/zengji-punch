@@ -88,6 +88,8 @@ export function createFailoverPool(url: string, fallbackHosts: string | undefine
 	let current: number | null = null;
 	let checkedAt = 0;
 	let picking: Promise<number> | null = null;
+	/** 最近一次選主機花了多久（給 /api/ping 看冷啟動卡在哪） */
+	let lastPickMs: number | null = null;
 
 	const poolFor = (i: number) => {
 		let p = pools.get(i);
@@ -120,8 +122,10 @@ export function createFailoverPool(url: string, fallbackHosts: string | undefine
 
 	async function active(): Promise<mysql.Pool> {
 		if (current === null) {
+			const t = Date.now();
 			picking ??= pick(hosts).finally(() => (picking = null));
 			const next = await picking;
+			lastPickMs = Date.now() - t;
 			if (current === null && next !== 0) console.warn(`[db] 主要資料庫 ${label(hosts[0])} 連不上，改連 ${label(hosts[next])}`);
 			current = next;
 			checkedAt = Date.now();
@@ -160,6 +164,8 @@ export function createFailoverPool(url: string, fallbackHosts: string | undefine
 		getConnection: () => run((p) => p.getConnection()),
 		/** 給測試 / 除錯看目前連到哪 */
 		currentHost: () => (current === null ? null : label(hosts[current])),
+		/** 不含主機名稱的狀態，可以公開回傳 */
+		status: () => ({ using: current === null ? null : current === 0 ? 'primary' : 'fallback', pickMs: lastPickMs }),
 		hosts: hosts.map(label)
 	};
 }
