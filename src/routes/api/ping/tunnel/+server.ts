@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import type { RequestHandler } from './$types';
 import { tunnelStream } from '#lib/server/db/cf-tunnel.js';
@@ -12,7 +13,9 @@ export const GET: RequestHandler = async () => {
 		idSet: !!id,
 		secretSet: !!secret,
 		idLooksRight: /^[0-9a-f]{32}\.access$/.test(id),
-		hasQuotesOrSpaces: /["'\s]/.test(id + secret)
+		hasQuotesOrSpaces: /["'\s]/.test(id + secret),
+		// 雜湊前 8 碼，用來核對 Vercel 和本機設的是不是同一組（看不出原本的值）
+		fingerprint: createHash('sha256').update(`${id}:${secret}`).digest('hex').slice(0, 8)
 	};
 	if (!id || !secret || !DATABASE_URL) return Response.json({ ok: false, env, error: '沒有設定 Service Token' });
 	const t = Date.now();

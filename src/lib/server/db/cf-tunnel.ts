@@ -26,8 +26,15 @@ export function tunnelStream({ hostname, clientId, clientSecret }: TunnelOptions
 			? '（Service Token 錯了，或 Liam MySQL 沒有加 Service Auth 規則）'
 			: '';
 		rejected = `Cloudflare 通道被拒：HTTP ${res.statusCode}${hint}`;
-		res.resume();
-		ws.terminate();
+		// 錯誤頁的標題和 Ray ID 可以分辨是 Access 規則擋的，還是 WAF / 機器人防護擋的
+		let body = '';
+		res.setEncoding('utf8');
+		res.on('data', (chunk: string) => (body += chunk.slice(0, 4000)));
+		res.on('end', () => {
+			const title = body.match(/<title>([^<]*)<\/title>/i)?.[1]?.trim();
+			rejected += `［${[title, res.headers['cf-ray'] && `Ray ${res.headers['cf-ray']}`].filter(Boolean).join('，')}］`;
+			ws.terminate();
+		});
 	});
 	return stream;
 }
