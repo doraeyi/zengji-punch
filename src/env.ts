@@ -11,18 +11,6 @@ export const variables = defineEnvVars({
 			'備用的資料庫主機（host:port，多個用逗號隔開），主要的連不上時自動改連，例如 kaikaizhen.myasustor.com:13306。帳號密碼與資料庫名稱沿用 DATABASE_URL。',
 		schema: optional
 	},
-	CF_ACCESS_CLIENT_ID: {
-		description: 'Cloudflare Access Service Token 的 Client ID。有設就改走 Cloudflare 通道（DATABASE_TUNNEL_HOST）連資料庫。',
-		schema: optional
-	},
-	CF_ACCESS_CLIENT_SECRET: {
-		description: 'Cloudflare Access Service Token 的 Client Secret',
-		schema: optional
-	},
-	DATABASE_TUNNEL_HOST: {
-		description: 'Cloudflare 通道的資料庫網址，預設 db-liam.name404.com',
-		schema: (value) => value || 'db-liam.name404.com'
-	},
 	VAPID_PUBLIC_KEY: {
 		description: 'Web Push 公鑰（npx web-push generate-vapid-keys 產生）。會給瀏覽器用來訂閱推播。',
 		public: true,

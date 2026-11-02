@@ -14,9 +14,6 @@ importers:
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
-      ws:
-        specifier: ^8.22.1
-        version: 8.22.1
     devDependencies:
       '@lucide/svelte':
         specifier: ^1.58.0
@@ -42,9 +39,6 @@ importers:
       '@types/web-push':
         specifier: ^3.6.4
         version: 3.6.4
-      '@types/ws':
-        specifier: ^8.18.2
-        version: 8.18.2
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.11
@@ -827,9 +821,6 @@ packages:
 
   '@types/web-push@3.6.4':
     resolution: {integrity: sha512-GnJmSr40H3RAnj0s34FNTcJi1hmWFV5KXugE0mYWnYhgTAHLJ/dJKAwDmvPJYMke0RplY2XE9LnM4hqSqKIjhQ==}
-
-  '@types/ws@8.18.2':
-    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@vercel/nft@1.11.0':
     resolution: {integrity: sha512-m1QFg+U+3yPOnP1xSYJ73UIRxLOXdts1JOhiOiyPYqEsALgrXFFINvgUaD6R6iNvaBFAjHllBCbkfx4FuOdpaA==}
@@ -2159,18 +2150,6 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
-  ws@8.22.1:
-    resolution: {integrity: sha512-oyL6OPYme/CmiFvNuGzeoxCJ4nOrZE2O1FwM9MWM1AsGri6nLXB2pg+lNA8aLeXMSav0J6eIVS1j6vUPzUtK9g==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
 
@@ -2660,10 +2639,6 @@ snapshots:
       undici-types: 7.24.6
 
   '@types/web-push@3.6.4':
-    dependencies:
-      '@types/node': 24.19.2
-
-  '@types/ws@8.18.2':
     dependencies:
       '@types/node': 24.19.2
 
@@ -4126,8 +4101,6 @@ snapshots:
       has-tostringtag: 1.0.2
 
   wrappy@1.0.2: {}
-
-  ws@8.22.1: {}
 
   xmlchars@2.2.0: {}
 
