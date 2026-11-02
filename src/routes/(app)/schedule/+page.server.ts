@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	// 預設看全店班表；員工也可以切到「我的打卡與薪資」
 	let who: number | 'all' = 'all';
 	if (whoParam === 'all') who = 'all';
-	else if (whoParam && isOwner && staff.some((s) => s.id === Number(whoParam))) who = Number(whoParam);
+	else if (whoParam && (isOwner || Number(whoParam) === me.id) && staff.some((s) => s.id === Number(whoParam))) who = Number(whoParam);
 
 	// 固定班自動排進月曆（看未來的月份時會排到那個月底）
 	await ensureTemplateShifts(to);
