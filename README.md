@@ -128,6 +128,7 @@ npm run dev
 | --- | --- | --- |
 | `DATABASE_URL` | ✅ | 主要資料庫：`mysql://帳號:密碼@liam.name404.com:13306/zengji_punch` |
 | `DATABASE_FALLBACK_HOSTS` | | 備用主機，主要連不上時自動改連：`kaikaizhen.myasustor.com:13306`（多個用逗號隔開，帳密沿用 `DATABASE_URL`） |
+| `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` | | Cloudflare Access 的 Service Token。有設就改走 `db-liam.name404.com` 通道連資料庫（NAS 的 MySQL 不再直接對外），`DATABASE_URL` 只用到帳密和資料庫名稱 |
 | `VAPID_PUBLIC_KEY` | | 推播公鑰（會送到瀏覽器）。沒填就不推播，打卡照常記錄。 |
 | `VAPID_PRIVATE_KEY` | | 推播私鑰，只放伺服器 |
 | `VAPID_SUBJECT` | | `mailto:你的email`，推播服務（Google / Apple）需要聯絡方式 |
