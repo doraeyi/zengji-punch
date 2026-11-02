@@ -1,0 +1,15 @@
+# 每 5 分鐘叫醒一次 Vercel 上的打卡系統，避免沒人用時伺服器休眠、下一個人打開要等好幾秒。
+# GitHub 的排程可能會晚幾分鐘；repo 60 天沒有任何更新時 GitHub 會自動停用，到 Actions 頁面重新啟用即可。
+name: keep-warm
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: curl -fsS --max-time 30 https://tsangkee.doraeyi.com/api/ping
