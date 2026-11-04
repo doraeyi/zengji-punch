@@ -6,6 +6,7 @@
 	import Info from '@lucide/svelte/icons/info';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import PushToggle from '#lib/components/PushToggle.svelte';
+	import AlarmSetup from '#lib/components/AlarmSetup.svelte';
 	import { fmtDay, localDay } from '#lib/time.js';
 	import type { PageProps } from './$types';
 
@@ -41,6 +42,10 @@
 </section>
 
 <div class="mt-3"><PushToggle role={data.user.role} /></div>
+
+{#if data.alarm}
+	<div class="mt-3"><AlarmSetup url={data.alarm.url} next={data.alarm.next} /></div>
+{/if}
 
 <section class="card mt-3 p-5">
 	<h2 class="mb-4 flex items-center gap-2 font-bold"><KeyRound class="size-5 text-chili" /> 修改密碼</h2>

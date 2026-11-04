@@ -5,14 +5,21 @@ import { db, devices, employees } from '#lib/server/db/index.js';
 import { clearDeviceCookie, hashPassword, revokeDevice, revokeDevices, verifyPassword } from '#lib/server/auth.js';
 import { requireUser } from '#lib/server/guard.js';
 import { checkPassword } from '#lib/server/validate.js';
+import { alarmToken, nextAlarm } from '#lib/server/alarm.js';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const me = locals.user!;
 	const [emp] = await db.select({ username: employees.username }).from(employees).where(eq(employees.id, me.id));
 	const [device] = locals.deviceId
 		? await db.select({ label: devices.label, createdAt: devices.createdAt }).from(devices).where(eq(devices.id, locals.deviceId))
 		: [];
-	return { username: emp?.username ?? '', device: device ?? null };
+	const token = alarmToken(me.id);
+	return {
+		username: emp?.username ?? '',
+		device: device ?? null,
+		// 上班鬧鐘：網址（提前分鐘數由畫面加上）與下一班的上班時間
+		alarm: token ? { url: `${url.origin}/api/alarm?u=${me.id}&k=${token}`, next: await nextAlarm(me.id, 0) } : null
+	};
 };
 
 export const actions: Actions = {
