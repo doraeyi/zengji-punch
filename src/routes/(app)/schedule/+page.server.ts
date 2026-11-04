@@ -9,7 +9,8 @@ import { notify } from '#lib/server/notify.js';
 import { ensureTemplateShifts } from '#lib/server/templates.js';
 import { holidaysBetween } from '#lib/server/holidays.js';
 import { str } from '#lib/server/validate.js';
-import { fmtDay, hhmm, isDay, isMonth, localDay, monthDays, taipeiDate } from '#lib/time.js';
+import { fmtDay, hhmm, isDay, isMonth, localDay, monthDays, shiftPunchDate, taipeiDate } from '#lib/time.js';
+import { shiftOn } from '#lib/server/punch.js';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const me = locals.user!;
@@ -170,7 +171,9 @@ export const actions: Actions = {
 		if (!employeeId || !isDay(day) || !TIME_RE.test(time) || (kind !== 'in' && kind !== 'out')) {
 			return fail(400, { message: '補登資料不完整' });
 		}
-		await db.insert(punches).values({ employeeId, kind, at: taipeiDate(day, time), source: 'manual' });
+		// 做到半夜的班填 00:00 這類時間，存成隔天凌晨
+		const at = shiftPunchDate(day, time, await shiftOn(employeeId, day));
+		await db.insert(punches).values({ employeeId, kind, at, source: 'manual' });
 		const label = kind === 'in' ? '上班' : '下班';
 		await notify('punch', employeeId, `補登 ${await nameOf(employeeId)} ${fmtDay(day)} ${label} ${time}`, {
 			title: '✍️ 補登打卡',
@@ -214,7 +217,8 @@ export const actions: Actions = {
 		}
 		const [row] = await db.select({ employeeId: punches.employeeId }).from(punches).where(eq(punches.id, id));
 		if (!row) return fail(404, { message: '找不到這筆打卡' });
-		await db.update(punches).set({ kind, at: taipeiDate(day, time), source: 'manual' }).where(eq(punches.id, id));
+		const at = shiftPunchDate(day, time, await shiftOn(row.employeeId, day));
+		await db.update(punches).set({ kind, at, source: 'manual' }).where(eq(punches.id, id));
 		const label = kind === 'in' ? '上班' : '下班';
 		await notify('punch', row.employeeId, `修改 ${await nameOf(row.employeeId)} ${fmtDay(day)} ${label}打卡為 ${time}`, {
 			title: '✍️ 修改打卡',

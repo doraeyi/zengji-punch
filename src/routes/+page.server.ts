@@ -2,10 +2,10 @@ import { fail, redirect } from '@sveltejs/kit';
 import { sql } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { db, employees } from '#lib/server/db/index.js';
-import { dayPunches, firstLast, punch, shiftOn } from '#lib/server/punch.js';
+import { dayPunches, firstLast, punch, shiftOn, workDay } from '#lib/server/punch.js';
 import { fenceApplies, getGeofence } from '#lib/server/geofence.js';
 import { ensureTemplateShifts } from '#lib/server/templates.js';
-import { localDay, shiftWindow } from '#lib/time.js';
+import { shiftWindow } from '#lib/time.js';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const user = locals.user;
@@ -15,8 +15,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 		return { user: null, status: null };
 	}
 
-	const day = localDay();
 	await ensureTemplateShifts();
+	// 做到半夜的班，過了午夜還沒打下班卡時，畫面仍顯示前一天的班
+	const day = await workDay(user.id);
 	const [list, todayShift, fence] = await Promise.all([dayPunches(user.id, day), shiftOn(user.id, day), getGeofence()]);
 	const { first, last } = firstLast(list);
 	// 今天還沒打過 → 上班卡；打過之後每按一次都是（更新）下班卡

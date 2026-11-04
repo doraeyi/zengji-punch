@@ -1,8 +1,9 @@
-import { and, eq, gte, lt } from 'drizzle-orm';
-import { db, employees, punches, reminders, shifts } from './db';
+import { and, eq } from 'drizzle-orm';
+import { db, employees, reminders, shifts } from './db';
 import { notify } from './notify';
+import { dayPunches, workDay } from './punch';
 import { ensureTemplateShifts } from './templates';
-import { addDays, fmtDay, fmtTime, hhmm, localDay, shiftWindow, taipeiDate } from '#lib/time.js';
+import { addDays, fmtDay, fmtTime, hhmm, localDay, shiftWindow } from '#lib/time.js';
 
 /** 班表上班時間過了幾分鐘還沒打卡，就提醒員工 */
 export const MISSING_IN_AFTER_MIN = 5;
@@ -23,13 +24,6 @@ async function claim(employeeId: number, day: string, kind: 'missing-in' | 'miss
 	}
 }
 
-async function punchesOn(employeeId: number, day: string) {
-	return db
-		.select({ at: punches.at })
-		.from(punches)
-		.where(and(eq(punches.employeeId, employeeId), gte(punches.at, taipeiDate(day)), lt(punches.at, taipeiDate(addDays(day, 1)))))
-		.orderBy(punches.at);
-}
 
 /** 每分鐘跑一次：檢查忘記上班卡、半夜還沒下班卡 */
 export async function runReminders(now = new Date()) {
@@ -54,7 +48,7 @@ export async function runReminders(now = new Date()) {
 		const { start, end } = shiftWindow(today, s.startTime, s.endTime);
 		const remindAt = new Date(start.getTime() + MISSING_IN_AFTER_MIN * 60000);
 		if (now < remindAt || now >= end) continue;
-		if ((await punchesOn(s.employeeId, today)).length) continue;
+		if ((await dayPunches(s.employeeId, today)).length) continue;
 		if (!(await claim(s.employeeId, today, 'missing-in'))) continue;
 
 		await notify('remind', s.employeeId, `${s.name} 今天 ${hhmm(s.startTime)} 的班，到 ${fmtTime(remindAt)} 還沒打上班卡（已提醒他）`, {
@@ -75,7 +69,9 @@ export async function runReminders(now = new Date()) {
 		.where(and(eq(employees.role, 'staff'), eq(employees.active, true)));
 
 	for (const p of staff) {
-		const list = await punchesOn(p.id, yesterday);
+		// 昨天的班做到半夜、還在下班後的寬限時間內，先不提醒
+		if ((await workDay(p.id, now)) === yesterday) continue;
+		const list = await dayPunches(p.id, yesterday);
 		if (list.length !== 1) continue;
 		if (!(await claim(p.id, yesterday, 'missing-out'))) continue;
 

@@ -119,3 +119,36 @@ export function shiftWindow(day: string, startTime: string, endTime: string) {
 	if (end <= start) end = taipeiDate(addDays(day, 1), endTime);
 	return { start, end };
 }
+
+/** 跨夜的班，下班後這麼久以內打的卡仍算前一天的班 */
+const OVERNIGHT_GRACE_MS = 4 * 60 * 60 * 1000;
+
+type ShiftTimes = { startTime: string; endTime: string; leave?: boolean };
+
+/**
+ * 這筆打卡算哪一天的班。
+ * 前一天的班做到半夜（例如 22:30–00:00），過了午夜、下班後 4 小時內打的卡算前一天。
+ * prevShift 是打卡日期（台灣時間）前一天的班。
+ */
+export function punchDay(at: Date, prevShift?: ShiftTimes | null): string {
+	const day = localDay(at);
+	if (prevShift && !prevShift.leave) {
+		const { end } = shiftWindow(addDays(day, -1), prevShift.startTime, prevShift.endTime);
+		if (at.getTime() < end.getTime() + OVERNIGHT_GRACE_MS) return addDays(day, -1);
+	}
+	return day;
+}
+
+/**
+ * 老闆補登「某天的班」的打卡時間，換成實際的 Date。
+ * 填了比上班時間早、而且隔天這個時間還在下班後 4 小時內（例如 22:30–00:00 填 00:00），代表隔天凌晨。
+ */
+export function shiftPunchDate(day: string, time: string, shift?: ShiftTimes | null): Date {
+	const at = taipeiDate(day, time);
+	if (shift && !shift.leave) {
+		const { start, end } = shiftWindow(day, shift.startTime, shift.endTime);
+		const nextDay = taipeiDate(addDays(day, 1), time);
+		if (at < start && nextDay.getTime() < end.getTime() + OVERNIGHT_GRACE_MS) return nextDay;
+	}
+	return at;
+}

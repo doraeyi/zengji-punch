@@ -1,6 +1,6 @@
 import { and, asc, between, eq, gte, lt, lte } from 'drizzle-orm';
 import { db, employees, payouts, punches, shifts } from './db';
-import { addDays, localDay, shiftWindow, taipeiDate } from '#lib/time.js';
+import { addDays, localDay, punchDay, shiftWindow, taipeiDate } from '#lib/time.js';
 import { holidayDoublePay, holidaysBetween, type Holiday } from './holidays';
 
 /** 晚幾分鐘以上才算遲到 */
@@ -54,7 +54,8 @@ export async function attendance(employeeId: number, from: string, to: string): 
 				and(
 					eq(punches.employeeId, employeeId),
 					gte(punches.at, taipeiDate(from)),
-					lt(punches.at, taipeiDate(addDays(to, 1)))
+					// 多抓隔天：做到半夜的班，下班卡在隔天凌晨
+					lt(punches.at, taipeiDate(addDays(to, 2)))
 				)
 			)
 			.orderBy(asc(punches.at)),
@@ -68,7 +69,8 @@ export async function attendance(employeeId: number, from: string, to: string): 
 				note: shifts.note
 			})
 			.from(shifts)
-			.where(and(eq(shifts.employeeId, employeeId), between(shifts.day, from, to)))
+			// 多抓前一天：判斷 from 當天凌晨的打卡是不是前一天的下班卡
+			.where(and(eq(shifts.employeeId, employeeId), between(shifts.day, addDays(from, -1), to)))
 			.orderBy(asc(shifts.startTime)),
 		db
 			.select({ id: payouts.id, periodStart: payouts.periodStart, periodEnd: payouts.periodEnd })
@@ -82,15 +84,16 @@ export async function attendance(employeeId: number, from: string, to: string): 
 	// 老闆 / 老闆娘排了班但不一定打卡，沒打卡不算缺勤
 	const isOwner = emp?.role === 'owner';
 
-	// 依台灣日期分組
+	// 依班的日期分組：做到半夜的班，隔天凌晨的下班卡算前一天
 	const byDay = new Map<string, PunchRow[]>();
 	for (const p of punchRows) {
-		const d = localDay(p.at);
+		const d = punchDay(p.at, shiftRows.find((s) => s.day === addDays(localDay(p.at), -1)));
 		byDay.set(d, [...(byDay.get(d) ?? []), p]);
 	}
 
 	const now = new Date();
-	const today = localDay(now);
+	// 「今天」以班為準：過了午夜還在做前一天的班，今天仍是前一天
+	const today = punchDay(now, shiftRows.find((s) => s.day === addDays(localDay(now), -1)));
 	const days: DayRecord[] = [];
 	for (let day = from; day <= to; day = addDays(day, 1)) {
 		const shift = shiftRows.find((s) => s.day === day) ?? null;

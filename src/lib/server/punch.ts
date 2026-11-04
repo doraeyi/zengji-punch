@@ -2,7 +2,7 @@ import { and, asc, eq, gte, lt } from 'drizzle-orm';
 import { db, punches, shifts } from './db';
 import { notify } from './notify';
 import { checkFence, getGeofence } from './geofence';
-import { addDays, fmtDay, fmtTime, hhmm, localDay, shiftWindow, taipeiDate } from '#lib/time.js';
+import { addDays, fmtDay, fmtTime, hhmm, localDay, punchDay, shiftWindow, taipeiDate } from '#lib/time.js';
 
 // 打卡規則：每天「最早一筆 = 上班卡、最晚一筆 = 下班卡」，中間多按的不影響。
 // 所以員工不用記自己按到第幾下，下班後再按一次就會更新下班時間。
@@ -10,13 +10,23 @@ import { addDays, fmtDay, fmtTime, hhmm, localDay, shiftWindow, taipeiDate } fro
 /** 同一個人一分鐘內連按，視為手滑 */
 const DOUBLE_TAP_MS = 60 * 1000;
 
-/** 某人某天（台灣時間）的所有打卡，依時間排序 */
+/** 某人某天的班的所有打卡，依時間排序；做到半夜的班包含隔天凌晨的下班卡（見 punchDay） */
 export async function dayPunches(employeeId: number, day: string) {
-	return db
-		.select({ id: punches.id, at: punches.at, source: punches.source })
-		.from(punches)
-		.where(and(eq(punches.employeeId, employeeId), gte(punches.at, taipeiDate(day)), lt(punches.at, taipeiDate(addDays(day, 1)))))
-		.orderBy(asc(punches.at));
+	const [rows, prevShift, shift] = await Promise.all([
+		db
+			.select({ id: punches.id, at: punches.at, source: punches.source })
+			.from(punches)
+			.where(and(eq(punches.employeeId, employeeId), gte(punches.at, taipeiDate(day)), lt(punches.at, taipeiDate(addDays(day, 2)))))
+			.orderBy(asc(punches.at)),
+		shiftOn(employeeId, addDays(day, -1)),
+		shiftOn(employeeId, day)
+	]);
+	return rows.filter((p) => punchDay(p.at, localDay(p.at) === day ? prevShift : shift) === day);
+}
+
+/** 現在打卡算哪一天的班（前一天做到半夜的班，下班卡算前一天） */
+export async function workDay(employeeId: number, at = new Date()) {
+	return punchDay(at, await shiftOn(employeeId, addDays(localDay(at), -1)));
 }
 
 /** 今天的上班卡（最早）與下班卡（最晚，至少要兩筆才算） */
@@ -49,7 +59,7 @@ export async function punch(
 
 	const at = new Date();
 	at.setMilliseconds(0);
-	const day = localDay(at);
+	const day = await workDay(user.id, at);
 	const today = await dayPunches(user.id, day);
 	const last = today.at(-1);
 
