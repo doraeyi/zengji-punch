@@ -40,7 +40,7 @@ export type DayRecord = {
  *
  * 每天以「最早一筆 = 上班卡、最晚一筆 = 下班卡」計算，中間多按的不影響。
  * 計薪規則：
- * - 有排班時，比班表早到的時間不算，從班表上班時間起算；遲到就從實際打卡時間算。
+ * - 有排班時，比班表早到的時間不算，從班表上班時間起算；遲到只扣滿 30 分鐘的部分（例如排 19:00、19:02 上班 → 照 19:00 算）。
  * - 下班照實際打卡時間算（例如排 16:00–19:00、19:30 下班 → 3.5 小時）。
  * - 沒排班卻有打卡，照實際時間算。
  * - 還沒打下班卡的那段先不算錢。
@@ -101,8 +101,12 @@ export async function attendance(employeeId: number, from: string, to: string): 
 			const first = list[0];
 			const last = list.length > 1 ? list.at(-1)! : null;
 			const minutes = last ? Math.floor((last.at.getTime() - first.at.getTime()) / 60000) : 0;
-			// 早到不算：從班表上班時間起算
-			const start = window && first.at < window.start && !shift!.leave ? window.start : first.at;
+			// 早到不算：從班表上班時間起算；遲到只扣滿 30 分鐘的部分：晚 2 分鐘不扣，晚 35 分鐘扣 30 分鐘
+			let start = first.at;
+			if (window && !shift!.leave) {
+				const late = Math.max(0, first.at.getTime() - window.start.getTime());
+				start = new Date(window.start.getTime() + Math.floor(late / OVERTIME_STEP_MS) * OVERTIME_STEP_MS);
+			}
 			// 晚走只算滿 30 分鐘的部分：超過下班時間 29 分鐘不加錢，35 分鐘算 30 分鐘
 			let end = last?.at ?? null;
 			if (end && window && end > window.end && !shift!.leave) {
