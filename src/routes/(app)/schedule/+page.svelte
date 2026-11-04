@@ -43,7 +43,8 @@
 	let openDay = $state<string | null>(null);
 	type Draft = { id?: number; employeeId: number; day: string; startTime: string; endTime: string; note: string; leave: boolean };
 	let draft = $state<Draft | null>(null);
-	let punchFix = $state<{ employeeId: number; day: string } | null>(null);
+	/** 補登（沒有 id）或修改某一筆打卡（有 id） */
+	let punchFix = $state<{ employeeId: number; day: string; kind: 'in' | 'out'; id?: number; time?: string } | null>(null);
 	let leaveAsk = $state<{ day: string; reason: string } | null>(null);
 	let busy = $state(false);
 
@@ -316,9 +317,9 @@
 							<div class="mt-3 space-y-1.5">
 								{#each rec.sessions as s, i (i)}
 									<div class="flex flex-wrap items-center gap-1.5 text-sm">
-										{@render stamp(s.in, 'in')}
+										{@render stamp(s.in, 'in', p.id)}
 										<ArrowRight class="size-3.5 text-muted" />
-										{@render stamp(s.out, 'out')}
+										{@render stamp(s.out, 'out', p.id)}
 									</div>
 								{/each}
 							</div>
@@ -348,7 +349,7 @@
 						{/if}
 						{#if rec.lateMinutes}<p class="mt-2 text-xs text-honey">遲到 {fmtDuration(rec.lateMinutes)}</p>{/if}
 						{#if isOwner}
-							<button class="mt-2 text-xs text-muted underline underline-offset-2" onclick={() => (punchFix = { employeeId: p.id, day: openDay! })}>補登打卡</button>
+							<button class="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-3 py-1.5 text-sm font-medium text-ink-2 hover:bg-paper-2" onclick={() => (punchFix = { employeeId: p.id, day: openDay!, kind: rec.sessions[0]?.in ? 'out' : 'in' })}><Plus class="size-4" />補登打卡</button>
 						{/if}
 					{/if}
 				</li>
@@ -378,11 +379,19 @@
 	{/if}
 {/snippet}
 
-{#snippet stamp(p: { id: number; at: Date; source: string; distance: number | null } | null, kind: 'in' | 'out')}
+{#snippet stamp(p: { id: number; at: Date; source: string; distance: number | null } | null, kind: 'in' | 'out', personId: number)}
 	{#if p}
 		<span class="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 {kind === 'in' ? 'bg-chili-soft/80' : 'bg-night-soft'}">
 			<span class="text-xs text-muted">{kind === 'in' ? '上班' : '下班'}</span>
-			<span class="tabular font-bold">{fmtTime(p.at)}</span>
+			{#if isOwner}
+				<button
+					class="tabular inline-flex items-center gap-1 font-bold underline decoration-dotted underline-offset-4"
+					aria-label="修改這筆打卡時間"
+					onclick={() => (punchFix = { employeeId: personId, day: openDay!, kind, id: p.id, time: fmtTime(p.at) })}
+				>{fmtTime(p.at)}<PencilLine class="size-3 text-muted" /></button>
+			{:else}
+				<span class="tabular font-bold">{fmtTime(p.at)}</span>
+			{/if}
 			{#if p.source === 'manual'}<span class="text-[10px] text-muted">補登</span>{/if}
 			{#if isOwner && p.distance !== null}<span class="text-[10px] text-muted" title="打卡時離店家的距離">📍{p.distance}m</span>{/if}
 			{#if isOwner}
@@ -393,7 +402,13 @@
 			{/if}
 		</span>
 	{:else}
-		<span class="rounded-xl border border-dashed border-chili/40 px-2.5 py-1 text-xs text-chili">未打{kind === 'in' ? '上班' : '下班'}卡</span>
+		{#if isOwner}
+			<button class="rounded-xl border border-dashed border-chili/40 px-2.5 py-1 text-xs text-chili hover:bg-chili-soft" onclick={() => (punchFix = { employeeId: personId, day: openDay!, kind })}>
+				未打{kind === 'in' ? '上班' : '下班'}卡・補登
+			</button>
+		{:else}
+			<span class="rounded-xl border border-dashed border-chili/40 px-2.5 py-1 text-xs text-chili">未打{kind === 'in' ? '上班' : '下班'}卡</span>
+		{/if}
 	{/if}
 {/snippet}
 
@@ -453,27 +468,32 @@
 </Sheet>
 
 <!-- 補登 -->
-<Sheet open={!!punchFix} title="補登打卡" onclose={() => (punchFix = null)}>
+<Sheet open={!!punchFix} title={punchFix?.id ? '修改打卡' : '補登打卡'} onclose={() => (punchFix = null)}>
 	{#if punchFix}
-		<form method="POST" action={act("addPunch")} class="space-y-4" use:enhance={submit}>
+		<form method="POST" action={act(punchFix.id ? 'editPunch' : 'addPunch')} class="space-y-4" use:enhance={submit}>
 			<input type="hidden" name="employeeId" value={punchFix.employeeId} />
 			<input type="hidden" name="day" value={punchFix.day} />
+			{#if punchFix.id}<input type="hidden" name="id" value={punchFix.id} />{/if}
 			<p class="rounded-2xl bg-paper-2 px-4 py-3 text-sm text-ink-2">
-				幫 <b>{person(punchFix.employeeId)?.name}</b> 補登 {fmtDay(punchFix.day)} 的打卡，會標示「補登」。
+				{#if punchFix.id}
+					修改 <b>{person(punchFix.employeeId)?.name}</b> {fmtDay(punchFix.day)} 這筆 {punchFix.time} 的打卡，改完會標示「補登」。
+				{:else}
+					幫 <b>{person(punchFix.employeeId)?.name}</b> 補登 {fmtDay(punchFix.day)} 的打卡，會標示「補登」。
+				{/if}
 			</p>
 			<div class="grid grid-cols-2 gap-2">
 				<label class="cursor-pointer rounded-2xl border border-line p-3 text-center font-bold has-checked:border-chili has-checked:bg-chili-soft has-checked:text-chili-deep">
-					<input type="radio" name="kind" value="in" class="sr-only" checked /> 上班
+					<input type="radio" name="kind" value="in" class="sr-only" checked={punchFix.kind === 'in'} /> 上班
 				</label>
 				<label class="cursor-pointer rounded-2xl border border-line p-3 text-center font-bold has-checked:border-night has-checked:bg-night-soft has-checked:text-night">
-					<input type="radio" name="kind" value="out" class="sr-only" /> 下班
+					<input type="radio" name="kind" value="out" class="sr-only" checked={punchFix.kind === 'out'} /> 下班
 				</label>
 			</div>
 			<div class="min-w-0">
 				<label class="field-label" for="fix-time">時間</label>
-				<input id="fix-time" name="time" type="time" class="field tabular" required />
+				<input id="fix-time" name="time" type="time" class="field tabular" value={punchFix.time ?? ''} required />
 			</div>
-			<button class="btn btn-primary w-full" disabled={busy}>補登</button>
+			<button class="btn btn-primary w-full" disabled={busy}>{punchFix.id ? '儲存修改' : '補登'}</button>
 		</form>
 	{/if}
 </Sheet>

@@ -201,6 +201,29 @@ export const actions: Actions = {
 		return decideLeave(owner, Number(form.get('id')), form.get('approve') === 'on');
 	},
 
+	/** 老闆修改某一筆打卡的時間（員工打錯或忘了打，事後才按） */
+	editPunch: async ({ request, locals }) => {
+		const owner = requireOwner(locals);
+		const form = await request.formData();
+		const id = Number(form.get('id'));
+		const day = str(form, 'day');
+		const time = str(form, 'time');
+		const kind = str(form, 'kind');
+		if (!id || !isDay(day) || !TIME_RE.test(time) || (kind !== 'in' && kind !== 'out')) {
+			return fail(400, { message: '修改資料不完整' });
+		}
+		const [row] = await db.select({ employeeId: punches.employeeId }).from(punches).where(eq(punches.id, id));
+		if (!row) return fail(404, { message: '找不到這筆打卡' });
+		await db.update(punches).set({ kind, at: taipeiDate(day, time), source: 'manual' }).where(eq(punches.id, id));
+		const label = kind === 'in' ? '上班' : '下班';
+		await notify('punch', row.employeeId, `修改 ${await nameOf(row.employeeId)} ${fmtDay(day)} ${label}打卡為 ${time}`, {
+			title: '✍️ 修改打卡',
+			actorId: owner.id,
+			toEmployee: { title: '✍️ 老闆修改了你的打卡', body: `${fmtDay(day)} ${label} ${time}`, url: '/schedule', tag: `fix-${day}` }
+		});
+		return { edited: true };
+	},
+
 	deletePunch: async ({ request, locals }) => {
 		requireOwner(locals);
 		const id = Number((await request.formData()).get('id'));
