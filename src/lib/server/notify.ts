@@ -12,6 +12,8 @@ type Options = {
 	toEmployee?: PushPayload;
 	/** false = 只記到通知中心、不推播給老闆（例如只提醒員工自己的事） */
 	pushOwners?: boolean;
+	/** 老闆點推播後打開的頁面，預設 /admin */
+	ownerUrl?: string;
 };
 
 /**
@@ -28,7 +30,7 @@ export async function notify(kind: NotifyKind, employeeId: number | null, text: 
 	const tasks: Promise<number>[] = [
 		opts.pushOwners === false
 			? Promise.resolve(0)
-			: pushToOwners({ title: opts.title ?? '曾記麻辣燙', body: text, url: '/admin', tag: `${kind}-${employeeId ?? 0}` }, opts.actorId)
+			: pushToOwners({ title: opts.title ?? '曾記麻辣燙', body: text, url: opts.ownerUrl ?? '/admin', tag: `${kind}-${employeeId ?? 0}` }, opts.actorId)
 	];
 	if (opts.toEmployee && employeeId && employeeId !== opts.actorId) {
 		tasks.push(pushTo([employeeId], opts.toEmployee));

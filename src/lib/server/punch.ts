@@ -24,6 +24,20 @@ export async function dayPunches(employeeId: number, day: string) {
 	return rows.filter((p) => punchDay(p.at, localDay(p.at) === day ? prevShift : shift) === day);
 }
 
+/**
+ * 照班表看這天缺哪張卡：沒打卡就兩張都缺；只有一筆時，看它比較靠近上班還是下班，缺另一張。
+ * 回傳要補的卡（時間用班表的上下班時間）。
+ */
+export function missingPunches(window: { start: Date; end: Date }, list: { at: Date }[]) {
+	const missing: { kind: 'in' | 'out'; at: Date }[] = [];
+	if (list.length >= 2) return missing;
+	const only = list[0]?.at;
+	const mid = (window.start.getTime() + window.end.getTime()) / 2;
+	if (!only || only.getTime() >= mid) missing.push({ kind: 'in', at: window.start });
+	if (!only || only.getTime() < mid) missing.push({ kind: 'out', at: window.end });
+	return missing;
+}
+
 /** 現在打卡算哪一天的班（前一天做到半夜的班，下班卡算前一天） */
 export async function workDay(employeeId: number, at = new Date()) {
 	return punchDay(at, await shiftOn(employeeId, addDays(localDay(at), -1)));

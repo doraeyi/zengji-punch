@@ -10,6 +10,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import Plane from '@lucide/svelte/icons/plane';
 	import Check from '@lucide/svelte/icons/check';
+	import Hand from '@lucide/svelte/icons/hand';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Sheet from '#lib/components/Sheet.svelte';
 	import { addMonths, fmtDay, fmtDuration, fmtMoney, fmtTime, hhmm, monthDays, weekdayOf } from '#lib/time.js';
@@ -40,7 +41,8 @@
 		`?month=${params.month ?? data.month}&who=${params.who ?? data.who}`;
 
 	// ── 點某一天 ──
-	let openDay = $state<string | null>(null);
+	// 從推播點進來（?day=）直接打開那天
+	let openDay = $state<string | null>(page.url.searchParams.get('day'));
 	type Draft = { id?: number; employeeId: number; day: string; startTime: string; endTime: string; note: string; leave: boolean };
 	let draft = $state<Draft | null>(null);
 	/** 補登（沒有 id）或修改某一筆打卡（有 id） */
@@ -362,6 +364,17 @@
 								{/if}
 								<button class="inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-3 py-1.5 text-sm font-medium text-ink-2 hover:bg-paper-2" onclick={() => (punchFix = { employeeId: p.id, day: openDay!, kind: rec.sessions[0]?.in ? 'out' : 'in' })}><Plus class="size-4" />補登打卡</button>
 							</div>
+						{:else if p.id === data.user.id && shift && !shift.leave && !rec.sessions[0]?.out && rec.status !== 'working' && openDay <= data.today}
+							<!-- 員工自己忘了打卡：請老闆補登，老闆手機會收到推播 -->
+							<form method="POST" action={act('requestFix')} use:enhance={submit} class="mt-3">
+								<input type="hidden" name="day" value={openDay} />
+								<button class="btn btn-ghost w-full" disabled={busy}><Hand class="size-4" /> 我忘了打卡，請老闆補登</button>
+								{#if form?.fixRequested}
+									<p class="mt-2 text-center text-xs text-jade">已通知老闆，補登後你會收到通知</p>
+								{:else if form?.message}
+									<p class="mt-2 text-center text-xs text-chili">{form.message}</p>
+								{/if}
+							</form>
 						{/if}
 					{/if}
 				</li>
