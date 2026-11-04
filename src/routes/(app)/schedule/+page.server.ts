@@ -9,8 +9,8 @@ import { notify } from '#lib/server/notify.js';
 import { ensureTemplateShifts } from '#lib/server/templates.js';
 import { holidaysBetween } from '#lib/server/holidays.js';
 import { str } from '#lib/server/validate.js';
-import { fmtDay, hhmm, isDay, isMonth, localDay, monthDays, shiftPunchDate, taipeiDate } from '#lib/time.js';
-import { shiftOn } from '#lib/server/punch.js';
+import { fmtDay, fmtTime, hhmm, isDay, isMonth, localDay, monthDays, shiftPunchDate, shiftWindow, taipeiDate } from '#lib/time.js';
+import { dayPunches, shiftOn } from '#lib/server/punch.js';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const me = locals.user!;
@@ -179,6 +179,37 @@ export const actions: Actions = {
 			title: '✍️ 補登打卡',
 			actorId: owner.id,
 			toEmployee: { title: '✍️ 老闆幫你補登了打卡', body: `${fmtDay(day)} ${label} ${time}`, url: '/schedule', tag: `fix-${day}` }
+		});
+		return { added: true };
+	},
+
+	/** 老闆一鍵照班表補登：缺上班卡補班表上班時間、缺下班卡補班表下班時間，兩個都缺就一起補 */
+	fillFromShift: async ({ request, locals }) => {
+		const owner = requireOwner(locals);
+		const form = await request.formData();
+		const employeeId = Number(form.get('employeeId'));
+		const day = str(form, 'day');
+		if (!employeeId || !isDay(day)) return fail(400, { message: '補登資料不完整' });
+		const shift = await shiftOn(employeeId, day);
+		if (!shift || shift.leave) return fail(400, { message: '這天沒有班，不能照班表補登' });
+		const { start, end } = shiftWindow(day, shift.startTime, shift.endTime);
+		if (start > new Date()) return fail(400, { message: '這個班還沒開始，不能補登' });
+		const list = await dayPunches(employeeId, day);
+		if (list.length >= 2) return fail(400, { message: '上下班卡都有了，不用補' });
+
+		// 只有一筆時，看它比較靠近上班還是下班，補另一邊
+		const add: { kind: 'in' | 'out'; at: Date }[] = [];
+		const only = list[0]?.at;
+		const mid = (start.getTime() + end.getTime()) / 2;
+		if (!only || only.getTime() >= mid) add.push({ kind: 'in', at: start });
+		if (!only || only.getTime() < mid) add.push({ kind: 'out', at: end });
+		await db.insert(punches).values(add.map((p) => ({ employeeId, ...p, source: 'manual' })));
+
+		const text = add.map((p) => `${p.kind === 'in' ? '上班' : '下班'} ${fmtTime(p.at)}`).join('、');
+		await notify('punch', employeeId, `照班表補登 ${await nameOf(employeeId)} ${fmtDay(day)} ${text}`, {
+			title: '✍️ 補登打卡',
+			actorId: owner.id,
+			toEmployee: { title: '✍️ 老闆幫你補登了打卡', body: `${fmtDay(day)} ${text}`, url: '/schedule', tag: `fix-${day}` }
 		});
 		return { added: true };
 	},

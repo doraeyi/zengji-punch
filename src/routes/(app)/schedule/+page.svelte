@@ -349,7 +349,19 @@
 						{/if}
 						{#if rec.lateMinutes}<p class="mt-2 text-xs text-honey">遲到 {fmtDuration(rec.lateMinutes)}</p>{/if}
 						{#if isOwner}
-							<button class="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-3 py-1.5 text-sm font-medium text-ink-2 hover:bg-paper-2" onclick={() => (punchFix = { employeeId: p.id, day: openDay!, kind: rec.sessions[0]?.in ? 'out' : 'in' })}><Plus class="size-4" />補登打卡</button>
+							<div class="mt-3 flex flex-wrap gap-2">
+								<!-- 忘了打卡（缺上班、缺下班或兩個都缺）：一鍵照班表時間補上 -->
+								{#if shift && !shift.leave && !rec.sessions[0]?.out && openDay <= data.today}
+									<form method="POST" action={act('fillFromShift')} use:enhance={submit} class="contents">
+										<input type="hidden" name="employeeId" value={p.id} />
+										<input type="hidden" name="day" value={openDay} />
+										<button class="inline-flex items-center gap-1.5 rounded-xl bg-ink px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90" disabled={busy}>
+											<CheckCheck class="size-4" />照班表補登 {hhmm(shift.startTime)}–{hhmm(shift.endTime)}
+										</button>
+									</form>
+								{/if}
+								<button class="inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-3 py-1.5 text-sm font-medium text-ink-2 hover:bg-paper-2" onclick={() => (punchFix = { employeeId: p.id, day: openDay!, kind: rec.sessions[0]?.in ? 'out' : 'in' })}><Plus class="size-4" />補登打卡</button>
+							</div>
 						{/if}
 					{/if}
 				</li>
