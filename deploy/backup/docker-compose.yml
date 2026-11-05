@@ -6,6 +6,13 @@ services:
   db:
     image: mysql:8.4
     restart: unless-stopped
+    # 打卡資料只有幾 MB：關掉效能監控、縮小快取，記憶體從約 450MB 降到 200MB 以下，少佔朋友這台 VM
+    command:
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=32M
+      - --innodb-log-buffer-size=8M
+      - --key-buffer-size=8M
+      - --max-connections=30
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: zengji_punch
