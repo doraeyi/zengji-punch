@@ -5,16 +5,20 @@ import { pushTo } from './push';
 import { remindPrefsOf } from './alarm';
 import { dayPunches, workDay } from './punch';
 import { ensureTemplateShifts } from './templates';
-import { addDays, fmtDay, fmtTime, hhmm, localDay, shiftWindow } from '#lib/time.js';
+import { addDays, fmtDay, fmtTime, hhmm, localDay, OVERNIGHT_GRACE_MS, shiftWindow } from '#lib/time.js';
 
 /** 班表上班時間過了幾分鐘還沒打卡，就提醒員工 */
 export const MISSING_IN_AFTER_MIN = 5;
+/** 上班時間過了幾分鐘還沒打卡，通知老闆 */
+export const OWNER_LATE_AFTER_MIN = 10;
+/** 下班時間過了幾分鐘還沒打下班卡，通知老闆 */
+export const OWNER_NO_OUT_AFTER_MIN = 25;
 
 /**
  * 搶一個「這個人、這天、這種提醒」的名額；已經送過就回傳 false。
  * 靠資料庫的唯一索引，伺服器重啟或同時跑兩份也不會重複發。
  */
-async function claim(employeeId: number, day: string, kind: 'pre-shift' | 'missing-in' | 'missing-out') {
+async function claim(employeeId: number, day: string, kind: 'pre-shift' | 'missing-in' | 'owner-late' | 'owner-no-out' | 'missing-out') {
 	try {
 		await db.insert(reminders).values({ employeeId, day, kind, sentAt: new Date() });
 		return true;
@@ -89,7 +93,44 @@ export async function runReminders(now = new Date()) {
 		});
 	}
 
-	// ② 過了晚上 12 點，昨天只有上班卡、沒有下班卡 → 通知老闆和員工本人
+	// ② 通知老闆：上班時間過了 10 分鐘還沒打上班卡（要不要改上班時間）、
+	//    下班時間過了 25 分鐘還沒打下班卡（是不是在加班）。昨天的班可能做到半夜，一起檢查。
+	const recent = await db
+		.select({
+			employeeId: shifts.employeeId,
+			day: shifts.day,
+			startTime: shifts.startTime,
+			endTime: shifts.endTime,
+			name: employees.name
+		})
+		.from(shifts)
+		.innerJoin(employees, eq(shifts.employeeId, employees.id))
+		.where(and(inArray(shifts.day, [yesterday, today]), eq(shifts.leave, false), eq(employees.role, 'staff'), eq(employees.active, true)));
+
+	for (const s of recent) {
+		const { start, end } = shiftWindow(s.day, s.startTime, s.endTime);
+		const ownerUrl = `/schedule?month=${s.day.slice(0, 7)}&who=${s.employeeId}&day=${s.day}`;
+		const lateAt = new Date(start.getTime() + OWNER_LATE_AFTER_MIN * 60000);
+		const noOutAt = new Date(end.getTime() + OWNER_NO_OUT_AFTER_MIN * 60000);
+
+		if (now >= lateAt && now < end) {
+			if ((await dayPunches(s.employeeId, s.day)).length) continue;
+			if (!(await claim(s.employeeId, s.day, 'owner-late'))) continue;
+			await notify('remind', s.employeeId, `${s.name} ${hhmm(s.startTime)} 的班，到 ${fmtTime(lateAt)} 還沒打上班卡，要改上班時間嗎？`, {
+				title: '⏰ 員工還沒打上班卡',
+				ownerUrl
+			});
+		} else if (now >= noOutAt && now < new Date(end.getTime() + OVERNIGHT_GRACE_MS)) {
+			if ((await dayPunches(s.employeeId, s.day)).length !== 1) continue;
+			if (!(await claim(s.employeeId, s.day, 'owner-no-out'))) continue;
+			await notify('remind', s.employeeId, `${s.name} ${hhmm(s.endTime)} 下班，到 ${fmtTime(noOutAt)} 還沒打下班卡，是在加班嗎？`, {
+				title: '🌙 員工還沒打下班卡',
+				ownerUrl
+			});
+		}
+	}
+
+	// ③ 過了晚上 12 點，昨天只有上班卡、沒有下班卡 → 通知老闆和員工本人
 	const staff = await db
 		.select({ id: employees.id, name: employees.name })
 		.from(employees)
@@ -103,8 +144,14 @@ export async function runReminders(now = new Date()) {
 		if (!(await claim(p.id, yesterday, 'missing-out'))) continue;
 
 		const inAt = fmtTime(list[0].at);
+		// 下班後 25 分鐘已經通知過老闆，就不再推給老闆，只提醒員工
+		const [ownerTold] = await db
+			.select({ id: reminders.id })
+			.from(reminders)
+			.where(and(eq(reminders.employeeId, p.id), eq(reminders.day, yesterday), eq(reminders.kind, 'owner-no-out')));
 		await notify('remind', p.id, `${p.name} ${fmtDay(yesterday)} 沒打下班卡（上班 ${inAt}），請補登下班時間`, {
 			title: '⚠️ 沒打下班卡',
+			pushOwners: !ownerTold,
 			toEmployee: {
 				title: '⚠️ 昨天忘記打下班卡',
 				body: `${fmtDay(yesterday)} 只有上班卡 ${inAt}，請跟老闆說幾點下班，讓他幫你補登`,

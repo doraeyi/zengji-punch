@@ -121,7 +121,7 @@ export function shiftWindow(day: string, startTime: string, endTime: string) {
 }
 
 /** 跨夜的班，下班後這麼久以內打的卡仍算前一天的班 */
-const OVERNIGHT_GRACE_MS = 4 * 60 * 60 * 1000;
+export const OVERNIGHT_GRACE_MS = 4 * 60 * 60 * 1000;
 
 type ShiftTimes = { startTime: string; endTime: string; leave?: boolean };
 
