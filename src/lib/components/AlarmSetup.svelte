@@ -15,6 +15,8 @@
 
 	const OFFSETS = [5, 10, 15, 30, 45, 60, 90, 120];
 	const LABEL = '曾記上班';
+	// iPhone 捷徑範本：加入時會問網址，每個人貼自己的
+	const SHORTCUT_URL = 'https://www.icloud.com/shortcuts/04db2e95271446a7b69cbdcdecbb70ec';
 
 	let before = $state(untrack(() => remind.before));
 	let push = $state(untrack(() => remind.push));
@@ -100,18 +102,20 @@
 	<details class="mt-4 rounded-2xl border border-line px-4 py-3 text-sm" open={!isAndroid}>
 		<summary class="cursor-pointer font-bold">iPhone 設定方式（只要設一次）</summary>
 		<ol class="mt-2 list-decimal space-y-1.5 pl-5 leading-relaxed text-ink-2">
-			<li>打開「捷徑」App → 下方「自動化」→ 右上角「＋」→「特定時間」。</li>
-			<li>時間選晚上（例如 <b>21:00</b>），重複選「每天」，再選「立即執行」。</li>
+			<li>先按上面的「<b>複製</b>」，複製你的鬧鐘網址。</li>
 			<li>
-				加入動作「<b>取得 URL 的內容</b>」，網址貼上面複製的網址。
+				按下面「<b>加入捷徑</b>」→「加入捷徑」，問你網址時，把預設的字刪掉、<b>貼上剛剛複製的網址</b>。
 			</li>
-			<li>加入「<b>尋找鬧鐘</b>」，條件設「標籤」是「<b>{LABEL}</b>」，再加「<b>刪除鬧鐘</b>」（把舊的刪掉）。</li>
-			<li>加入「<b>如果</b>」：「URL 的內容」<b>不是</b>「off」時 →「<b>製作鬧鐘</b>」，時間選「URL 的內容」，標籤填「{LABEL}」。</li>
+			<li>在「捷徑」App 裡點一下這個捷徑跑一次，時鐘 App 出現「{LABEL}」鬧鐘就成功了。</li>
+			<li>
+				讓它每天自動更新：「捷徑」App 下方「<b>自動化</b>」→ 右上角「＋」→「特定時間」，選晚上 <b>21:00</b>、「每天」、「<b>立即執行</b>」，下一步選剛剛加入的捷徑。
+			</li>
 			<li>
 				iOS 18 以上：到「設定 → App → 捷徑 → 進階」打開「<b>允許刪除而不詢問</b>」，自動刪除舊鬧鐘時才不會跳出確認。
 			</li>
 		</ol>
-		<p class="mt-2 text-xs text-muted">每台 iPhone 的按鈕名稱可能略有不同；設好後可以在捷徑裡按一次「執行」試試看，時鐘 App 會出現「{LABEL}」鬧鐘。</p>
+		<a class="btn btn-primary mt-3 w-full" href={SHORTCUT_URL} target="_blank" rel="noopener"><AlarmClock class="size-4" /> 加入捷徑</a>
+		<p class="mt-2 text-xs text-muted">第一次執行如果說找不到鬧鐘，先在時鐘 App 手動建一個標籤叫「{LABEL}」的鬧鐘，再執行一次。</p>
 	</details>
 
 	<details class="mt-2 rounded-2xl border border-line px-4 py-3 text-sm" open={isAndroid}>
