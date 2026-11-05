@@ -5,7 +5,7 @@ import { db, devices, employees } from '#lib/server/db/index.js';
 import { clearDeviceCookie, hashPassword, revokeDevice, revokeDevices, verifyPassword } from '#lib/server/auth.js';
 import { requireUser } from '#lib/server/guard.js';
 import { checkPassword } from '#lib/server/validate.js';
-import { alarmToken, nextAlarm } from '#lib/server/alarm.js';
+import { ALARM_OFFSETS, alarmToken, nextAlarm, remindPrefsOf, setRemindPrefs } from '#lib/server/alarm.js';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const me = locals.user!;
@@ -17,7 +17,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {
 		username: emp?.username ?? '',
 		device: device ?? null,
-		// 上班鬧鐘：網址（提前分鐘數由畫面加上）與下一班的上班時間
+		// 上班提醒：提前幾分鐘、要不要推播；鬧鐘網址與下一班的上班時間
+		remind: (await remindPrefsOf([me.id])).get(me.id)!,
 		alarm: token ? { url: `${url.origin}/api/alarm?u=${me.id}&k=${token}`, next: await nextAlarm(me.id, 0) } : null
 	};
 };
@@ -40,6 +41,16 @@ export const actions: Actions = {
 		await revokeDevices(me.id, 'password');
 		clearDeviceCookie(cookies);
 		redirect(303, '/login?changed=1');
+	},
+
+	/** 上班提醒：提前幾分鐘、要不要推播 */
+	remind: async ({ request, locals }) => {
+		const me = requireUser(locals);
+		const form = await request.formData();
+		const before = Number(form.get('before'));
+		if (!ALARM_OFFSETS.includes(before)) return fail(400, { remindMessage: '提前分鐘數不正確' });
+		await setRemindPrefs(me.id, { before, push: form.get('push') === 'on' });
+		return { remindSaved: true };
 	},
 
 	/** 只有老闆可以自己登出；員工換手機要找老闆 */

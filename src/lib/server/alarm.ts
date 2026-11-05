@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { CRON_SECRET, VAPID_PRIVATE_KEY } from '$app/env/private';
-import { db, shifts } from './db';
+import { db, settings, shifts } from './db';
 import { ensureTemplateShifts } from './templates';
 import { addDays, fmtTime, localDay, shiftWindow } from '#lib/time.js';
 
@@ -46,4 +46,30 @@ export async function nextAlarm(employeeId: number, before: number, now = new Da
 		}
 	}
 	return null;
+}
+
+// 上班提醒設定：提前幾分鐘（鬧鐘網址和推播共用）、要不要推播，存在 settings 表 remind:員工ID
+export type RemindPrefs = { before: number; push: boolean };
+export const DEFAULT_REMIND: RemindPrefs = { before: 30, push: true };
+const remindKey = (id: number) => `remind:${id}`;
+
+function parsePrefs(value: unknown): RemindPrefs {
+	const v = (value ?? {}) as Partial<RemindPrefs>;
+	return {
+		before: ALARM_OFFSETS.includes(Number(v.before)) ? Number(v.before) : DEFAULT_REMIND.before,
+		push: typeof v.push === 'boolean' ? v.push : DEFAULT_REMIND.push
+	};
+}
+
+export async function remindPrefsOf(employeeIds: number[]) {
+	const map = new Map(employeeIds.map((id) => [id, { ...DEFAULT_REMIND }]));
+	if (!employeeIds.length) return map;
+	const rows = await db.select().from(settings).where(inArray(settings.key, employeeIds.map(remindKey)));
+	for (const r of rows) map.set(Number(r.key.split(':')[1]), parsePrefs(r.value));
+	return map;
+}
+
+export async function setRemindPrefs(employeeId: number, prefs: RemindPrefs) {
+	const value = parsePrefs(prefs);
+	await db.insert(settings).values({ key: remindKey(employeeId), value }).onDuplicateKeyUpdate({ set: { value } });
 }
