@@ -6,7 +6,8 @@ RUN npm install -g pnpm@11.25.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm build && pnpm prune --prod --ignore-scripts
+# 建置時 SvelteKit 會檢查必填的環境變數；真正的值在容器啟動時才給
+RUN DATABASE_URL=mysql://build@localhost/build pnpm build && pnpm prune --prod --ignore-scripts
 
 FROM node:24-alpine
 WORKDIR /app
