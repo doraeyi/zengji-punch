@@ -1,0 +1,56 @@
+# VM 上的打卡系統備援（說明見 README.md）
+#   db    VM 本機的 MySQL，放備份資料
+#   sync  每 5 分鐘從正式站抓一份完整資料寫進 db，並存檔留 7 天
+#   app   打卡系統本身，平常不開；NAS 掛了用 ./emergency.sh on 開起來，掛到 traefik 對外
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: zengji_punch
+    volumes:
+      - ./mysql:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-p${DB_PASSWORD}']
+      interval: 10s
+      retries: 12
+
+  sync:
+    image: ghcr.io/doraeyi/zengji-punch:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BACKUP_SECRET: ${BACKUP_SECRET}
+      DATABASE_URL: mysql://root:${DB_PASSWORD}@db:3306/zengji_punch
+    volumes:
+      - ./backups:/backups
+    command: ['node', 'deploy/backup/sync.mjs']
+
+  app:
+    image: ghcr.io/doraeyi/zengji-punch:latest
+    profiles: [emergency]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://root:${DB_PASSWORD}@db:3306/zengji_punch
+      ORIGIN: https://tsangkee.doraeyi.com
+      BACKUP_SECRET: ${BACKUP_SECRET}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    networks: [default, web]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.zengji.entrypoints=web
+      - traefik.http.routers.zengji.rule=Host(`tsangkee.doraeyi.com`)
+      - traefik.http.services.zengji.loadbalancer.server.port=3000
+
+networks:
+  web:
+    external: true

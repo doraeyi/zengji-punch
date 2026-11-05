@@ -1,0 +1,9 @@
+node_modules
+.svelte-kit
+build
+backups
+intro-video
+.env
+.env.*
+.vercel
+.git
